@@ -1,0 +1,765 @@
+VFS
+    不同文件系统，结构不同，VFS屏蔽不同文件系统的差异
+    
+arch ：包含和硬件体系结构相关的代码，每种平台占一个相应的目录，如 i386、 arm、
+    arm64、 powerpc、 mips 等。 Linux 内核目前已经支持 30 种左右的体系结构。在 arch
+    目录下，存放的是各个平台以及各个平台的芯片对 Linux 内核进程调度、内存管理、
+    中断等的支持，以及每个具体的 SoC 和电路板的板级支持代码。
+block：块设备驱动程序 I/O 调度。
+crypto：常用加密和散列算法（如 AES、 SHA 等），还有一些压缩和 CRC 校验算法。
+documentation：内核各部分的通用解释和注释。
+drivers ：设备驱动程序，每个不同的驱动占用一个子目录，如 char、 block、 net、mtd、 i2c 等。
+fs：所支持的各种文件系统，如 EXT、 FAT、 NTFS、 JFFS2 等。
+include：头文件，与系统相关的头文件放置在 include/linux 子目录下。
+init：内核初始化代码。著名的 start_kernel() 就位于 init/main.c 文件中。
+ipc：进程间通信的代码。
+kernel ：内核最核心的部分，包括进程调度、定时器等，而和平台相关的一部分代码放在 arch/*/kernel 目录下。
+lib：库文件代码。
+mm：内存管理代码，和平台相关的一部分代码放在 arch/*/mm 目录下。
+net：网络相关代码，实现各种常见的网络协议。
+scripts：用于配置内核的脚本文件。
+security：主要是一个 SELinux 的模块。
+sound： ALSA、 OSS 音频设备的驱动核心代码和常用设备驱动。
+usr：实现用于打包和压缩的 cpio 等。
+include：内核 API 级别头文件。
+-------------------------------------------------------
+
+makefile 条件编译由.config决定。.config是否被注释由make menuconfig决定 make menuconfig中是否有选项由Kconfig决定
+    通常修改好选项.config 保存好更改名字以便下次使用（当你执行make distclean时系统会把.config文件删除）
+    以后我们再配置内核时就不需要再去arch/arm/configs下考取相应的文件了，省去了重新配置的麻烦，直接将保存的.config文件复制为.config即可.
+    
+    make savedefconfig命令根据当前图像化的配置生成defconfig
+        根据arch和defconfig名(xxx_defconfig)找config文件
+
+给内核增加功能，并且通过make menuconfig控制，需要
+同一级Kconfig中添加
+    config abc
+        bool/tristate "选项名" //选中编译 后面没有字符串名称，则不会出现在选中软件列表中Y/N
+        prompt "提示信息" //作用同bool后跟选项名一致
+        select CDE //选中后自动被选中
+        depend on ARM || MIPS //其中一个被选中之后才可被选中
+        ---help---
+            帮助信息
+            
+    menu/menconfig
+        所有子菜单config继承父菜单的依赖关系menu/menuconfig
+        
+    comment "注释" //配置过程中注释
+    
+    menu "Boot options"
+        comment "注释" //配置过程中第一行注释
+        config abc
+        bool/tristate "选项名" //选中编译 后面没有字符串名称，则不会出现在选中软件列表中Y/N
+        select CDE //选中后自动被选中
+        depend on ARM || MIPS //其中一个被选中之后才可被选中s
+        help
+            帮助信息
+    endmenu
+    
+    menconfig MODULES //可选菜
+        config abc
+        bool/tristate "选项名" //选中编译 后面没有字符串名称，则不会出现在选中软件列表中Y/N
+        help
+            帮助信息
+    if MODULES
+        ...
+    endif
+    
+    choice //后面选项一次被选中, 只能是bool/tristate, 并且为同一类型Y/M/N
+        ...
+    endchoice
+    
+    
+同一目录的makefile中
+    可选编译obj-$(CONFIG_abc) += xxx.o (根据CONFIG_abc选项决定m/y)
+    编译进内核obj-y += xxx.o
+    obj-$(CONF iG_EXT2_FS) += ext2.o
+    ext2-y := balloc.o dir.o f ile.o fsync.o ialloc.o inode.o \
+                octl.o namei.o super.o symlink.o
+    
+新建文件夹放入
+    在上一级Kconfig中加入搜索完整目录(新建目录)
+        source "drivers/i2c/.../Kconfig"
+            /(内核根目录)
+            |
+            |---drivers
+                |
+                |---i2c
+                    |
+                    |---...
+                    
+    在上一级makefile中加上目录(新建目录)
+    必选进内核obj-y += .../
+    可选obj-$(CONFIG_abc) += .../
+    
+Warning: 'make modules_install' requires /sbin/depmod. Please install it.
+    apt-get install kmod
+    
+make O= all -jn
+    O:将编译文件放入指定目录中
+    j:使用多核
+    
+make O= modules_install install
+INSTALL_MOD_STRIP=1 去除模块的多余信息
+INSTALL_MOD_PATH    模块安装路径
+INSTALL_PATH        内核安装路径 
+
+make scripts
+    scripts目录中辅助内核编译程序(架构根据当前编译环境), 单独编译模块需要这些程序
+    
+arm结构单独生成uImage
+    mkimage -A arch -O os -T type -C comp -a addr -e ep -n name -d data_file[:data_file...] image
+                -A ==> set architecture to 'arch'
+                -O ==> set operating system to 'os'
+                -T ==> set image type to 'type'
+                -C ==> set compression type 'comp'
+                -a ==> set load address to 'addr' (hex)
+                -e ==> set entry point to 'ep' (hex)
+                -n ==> set image name to 'name'
+                -d ==> use image data from 'datafile'
+                -x ==> set XIP (execute in place) 
+
+内核中单独编译某个模块
+    make CONFIG_IXGBE=m -C ../../build(头文件位置) M=${PWD} drivers/net/ethernet/intel/ixgbe/ixgbe.ko modules
+    cd drivers/net/ethernet/intel/ixgbe && make CONFIG_IXGBE=m -C ../../build(头文件位置) M=${PWD} modules
+        已经编译好的头文件位置:已经有编译信息(某些编译进内核的文件) 可以通过
+        未编译内核源文件位置:可能需要某些编译进内核的文件没有编译 导致不通过。先编译一次
+        M：单独编译的位置
+        
+initrd解压缩
+    解压
+        gunzip initrd.img.gz
+        cpio -div < ../initrd.img
+    压缩
+        find . | cpio -H newc -o | gzip > ../initrd.img 
+        
+    新型解压后只有二进制文件
+        查看偏移量(从哪里开始lz4压缩)
+            如   3492864       0x354C00        LZ4 compressed data, legacy
+            binwalk initrd
+            dd if=initrd.img bs=3492864 skip=1 | lz4cat | cpio -id --no-absolute-filenames
+        
+        
+volatile
+    编译器不要优化此变量, 此变量多个程序共用
+    优化后,同一程序中变量没变化可能放进寄存器中程序从寄存器中获取,提高读取速度,别的程序进行修改(内存),但寄存器中没修改
+    
+零长数组
+    可以访问后面内存地址, 且不占用原本内存
+    struct test {
+        int i;
+        char b[0];
+    };
+#define min(x,y) ({ \       //({}) 表示一个复合语句表达式 {} 表示里面是复合语句 加上()变成表达式 
+    const typeof(x) _x = (x); \
+    const typeof(y) _y = (y); \
+    (void) (&_x == &_y); \
+    _x < _y ? _x : _y; })
+
+结构体type的成员member的地址ptr, 求解结构体type的起始地址
+    type起始地址 = ptr - size
+    
+#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+    (TYPE *)0 有一个类型为TYPE的指针其值为0
+    &((TYPE *)0)->MEMBER MEMBER偏移地址, 由于0开始偏移, 偏移地址即为size
+
+#define container_of(ptr, type, member) ({			\
+	const typeof(((type *)0)->member) *__mptr = (ptr);	\
+	(type *)((char *)__mptr - offsetof(type, member));	\
+})
+    强转的目的是考虑指针的加减的实质是指针在内存的偏移, 偏移量为指针类型所占字节的个数
+    char * 指向char类型数据, char类型数据占1字节, 指针加减按1字节偏移
+    int  * 指向int 类型数据, int 类型数据占4字节, 指针加减按4字节偏移
+    
+#和##
+    #替换为字符串
+    ##拼接作用
+    宏参数使用宏时, #和##不会被解析
+    加入多一个宏,在第二个宏展开
+    
+    #define A			(2)
+    #define CONS(a,b)	int(a##e##b)
+        CONS(A, A) //编译器错误
+        
+    #define A			(2)
+    #define CONS(a,b)	int(a##e##b)
+    #define _CONS(a, b) CONS(a,b)
+        _CONS(A, A)
+GNU C
+    最有可能执行的分支告诉编译器,减少汇编跳转
+        __builtin_expect(EXP, N) //EXP == N的概率很大
+        #define likely(x) __builtin_expect(!!(x), 1) //x很可能为真 !!确保返回布尔值      
+        #define unlikely(x) __builtin_expect(!!(x), 0) //x很可能为假
+        
+------------------------------------------------------------------------
+字符设备的init函数如你所说完成注册设备等工作
+基于总线的那些设备init函数只是向总线设备列表中添加了设备,把驱动注册总线上,当检测到设备名称相同时才会调用probe函数,
+    probe函数其实就是接着init函数的工作完成设备的注册
+
+/proc/modules
+    lsmod调用
+已加载模块的信息
+    /sys/modules
+模块间的依赖关系
+    /lib/modules/`uname -r`/modules.dep
+
+#define __init __attribute__((__section__{".init.text"}))
+加载模块
+    static int __init 函数名
+    {
+        
+    }
+    module_init(函数名);
+    加载内核模块
+        request_module(const char*fmt, ...)
+        request_module(module_name);
+    所有标识为__init函数如果直接编译进内核, 成为内核镜像一部分, 连接是放在.init.text这个区域内
+    所有的__init函数在区段.initcall.init中还保存一份函数指针, 在初始化时内核通过函数指针调用__init函数
+    /sys/module/下出现模块名命名的目录
+卸载模块
+    static int __exit 函数名
+    {
+        
+    }
+    module_exit(函数名);
+模块参数传递
+    module_parm(参数名, 参数类型, 参数读写权限);
+    module_parm_array(数组名, 数组类型, 数组长, 数组读写权限);
+    insmod 模块名 参数名=参数值, 不传递使用模块内定义的缺省值, 模块被内置就无法传递, bootloader可通过bootargs传递参数
+    参数类型
+        byte, short, ushort, int, uint, long, ulong, charp, bool, invbool
+
+导出符号
+    EXPORT_SYMBOL(函数名);
+    EXPORT_SYMBOL_GPL(函数名); //适用于GPL许可
+    导出模块, 其它文件可以使用该模块, 其它需要使用时, 先声明extern
+    加载/卸载模块时候, 主要先后顺序
+    /proc/kallsyms 中有导出符号信息, 记录符号以及符号所在的内存地址
+内核模块声明
+    MODULES_AUTHOR();
+    MODULES_DESCRIPTION();
+    MODULES_VERSION();
+    MODULES_DEVICE_TABLE(); //usb pcie等设备驱动, 以表明该驱动模块所支持的设备
+    MODULES_ALLAS();
+模块计数器
+    int try_module_get(struct module *module);
+        模块使用调用
+    void module_put(struct module *module);
+        模块卸载时调用, 设备在使用时, 管理设备的模块将不能被卸载
+
+struct file
+    系统中每个被打开的文件在内核空间有此结构体
+    void *private_data, 大多数指向设备驱动自定义用于描述设备的结构体
+struct inode
+    管理文件系统的最基本单位
+    获取主次设备号 /proc/devices文件或知系统中注册的设备
+        unsigned int iminor(struct inode *inode);
+        unsigned int imajor(struct inode *inode);
+        
+热/冷插拔(udev)
+    内核通过netlink套接字发送设备详细信息
+    udev通过侦听内核发出来的 uevent 来管理 /dev目录下的设备文件
+    udev 只为那些连接到 Linux 操作系统的设备产生设备文件。并且 udev 能通过定义一个 udev 规则(/etc/udev/udev.conf)来产生匹配设备属性的设备文件,
+    这些设备属性可以是内核设备名称、总线路径、厂商名称、型号、序列号或者磁盘大小等等。
+    
+sysfs系统
+    /sys/bus下有drivers和devices目录, devices是对/sys/devices目录中文件的符号链接
+    /sys/class包含许多对/sys/devices中的文件链接
+                                         sysfs
+                 bus                    devices              class
+        driver        devices            x/y设备      x所属类     y所属类
+    y驱动   x驱动  y设备   x设备                       x设备       y设备
+    
+    总线, 驱动, 设备(include/linux/device.h)
+        struct bus_type
+            match函数匹配device与driver, 匹配成功调用driver中的probe
+        struct device_driver
+            platform, pci, i2c, spi等
+        struct device
+        
+    kobject
+        kobject衍生所有总线, 设备和驱动, 一个kobject对应一个sysfs中的目录
+    attribute
+        总线, 设备, 驱动, 各个attribute直接落实为sysfs中的一个文件
+        attribute
+        {bus_attribute
+        driver_attribute
+        device_attribute}
+            show() store()分别用于读写(cat/echo)attribute对应sysfs文件
+        drivers/base/bus.c与/sys/bus/platform对应
+    
+/proc/sys/printk
+    4 4 1 7
+    1.优先级高于4才会被输出到控制台
+    2.默认级别,printk不加参数级别
+    3.可接收优先级,
+    4.控制台优先级级别
+    
+printk(KERN_INFO "----\n");
+KERN_EMERG  KERN_SOH "0"    /* system is unusable */
+KERN_ALERT  KERN_SOH "1"    /* action must be taken immediately */
+KERN_CRIT   KERN_SOH "2"    /* critical conditions */
+KERN_ERR    KERN_SOH "3"    /* error conditions */
+KERN_WARNING    KERN_SOH "4"    /* warning conditions */
+KERN_NOTICE KERN_SOH "5"    /* normal but significant condition */
+KERN_INFO   KERN_SOH "6"    /* informational */
+KERN_DEBUG  KERN_SOH "7"    /* debug-level messages */
+
+kzmalloc(带有清零标志)/kmalloc -- kree
+vmalloc -- vree 申请虚拟内存不一定连续
+readl,writel -- 往内存映射空间操作
+
+字符设备
+    用户空间 --> 系统调用 --> file_operations中 --> 设备
+    描述字符设备, 一个字符设备对应一个cdev
+        struct cdev {
+            struct kobject kobj;    //kobject结构体
+            struct module *owner;   //通常填THIS_MODULES
+            const struct file_operations *ops;  //文件操作
+            struct list_head list;
+            dev_t dev;              //设备号
+            unsigned int count;
+        }
+        从dev中获取主次设备号
+            MAJOR(dev) MINOR(dev)
+        通过主次设备号生成dev
+            MKDEV(int major, int minor)
+    
+    操作cdev结构体函数
+        struct cdev *cdev_alloc(void);
+        void   cdev_init(struct cdev *, struct file_operations *); //初始化, 建立与ops连接
+        void   cdev_put(struct cdev *p);
+        int    cdev_add(struct cdev *, dev_t, unsigned);    //注册    
+        void   cdev_del(struct cdev *);                     //注销设备
+        
+    使用cdev_add之前向系统申请设备号
+        已知起始设备的设备号申请
+            int register_chrdev_region(dev_t from, unsigned count, const char *name);
+        未知设备号申请
+            int alloc_chrdev_region(dev_t *dev, unsigned baseminor, unsigned count, const char *name);
+        注销
+            void unregister_chrdev_region(dev_t from, unsigned count);
+            
+    文件操作
+    struct file_operations
+        llseek:修改一个文件当前读写位置, 并将新位置返回, 出错返回负
+        read/write:读/写数据, 成功返回对应字节数,0(EOF end-of-file), read失败返回负值, write失败返回-EINVAL ,与用户空间read/fread/wirte/fwrite对应
+        unlock_ioctl:与用户空间ioctl/fcntl对应, 调用成功返回一个非负值
+            ioctl命令申请,防止冲突
+                     8      8      2   13/14
+                -------------------------------
+                |设备类型|序列号|方向|数据尺寸|
+                -------------------------------
+                (type, nr , size) //隐含方向
+                设备序列号ioctl-number.txt中有推荐 type
+                序列号 nr
+                数据尺寸 size
+        mmap:将设备内存映射到虚拟空间中, 若未实现用户使用mmap返回-ENODEV, 帧缓冲设备映射到用户空间后可快速存取
+        open/release:内核可不实现, 用户空间调用时, 打开操作永远成功, release为close
+            通常在open中将file中的私有数据赋值
+                file->private_data = 自定义字符结构体
+        poll:用于询问设备是否可被非阻塞立即读写, 询问条件未触发, 系统调用会引起阻塞
+        aio_r/w:对设备进行异步读写, 用户空间可使用SYS_io_/setup/submit/getevnets/destroy/等进行操作
+    
+        用户空间 <--> 内核空间
+            copy_from_user(void *to, const void __user *from, unsigned long n)
+            copy_to_user(void __user *to, const void *from, unsigned long n)
+            传入用户空间前检验数据合法性, 防止超出用户空间
+                access_ok()
+        
+    模板
+        struct xxx_dev_t {
+            struct cdev cdev;
+            ...;
+        }xxx_dev;
+        
+        模块加载
+            初始化
+            .owner = THIS_MODULES;
+            获取字符设备号
+            注册
+        模块卸载
+            注销设备号
+            注销设备
+
+并发控制
+    编译器处理器乱序
+        编译性乱序
+            提高访存指令进行乱序,减少逻辑上不必要访存,导致没有严格按照代码逻辑顺序执行
+            barrier() 屏障功能,阻挡编译器优化,按照代码逻辑顺序正常
+                #define barrier() __asm__ __volatile__("": : :"memory")
+        处理性乱序
+            CPU根据自己缓存特性将访存指令重新排序,连续地址的访问可能会先执行,
+            或允许访存非阻塞,即前一条指令缓存不命中,后面不依赖前面的指令,后面先执行
+                LDR r0, [r1];
+                STR r2, [r3];
+                LDR未命中,STR不依赖LDR,先执行STR
+            DMB 数据内存屏障 严格低
+                在DMB之后的显式内存访问执行前,保证所有在DMB之前的内存访问完成
+            DSB 数据同步屏障 严格中
+                等待所有在DSB指令之前所有显式访存,缓存,跳转预测和TLB维护操作全部完成
+            ISB 指令同步屏障 严格高
+                Flush流水线,保证ISB之前的指令执行完成
+        内核中屏障
+            mb(),rmb(),wmb(); 读写屏障
+            __iormb(),__iowmb();寄存器读写屏障
+            readl_relaxed(),readl(),writel_relaxed(),writel();relaxed没有屏障
+    中断屏蔽
+        CPU一般具备屏蔽中断和打开中断功能,而且进程调度等操作依赖中断,一般不推荐使用
+        local_irq_disable() //不保存中断信息直接禁止
+        local_irq_enable()  //结束后使能中断
+        local_irq_save()    //禁止中断外保存目前CPU中断信息
+        local_irq_restore() //恢复CPU中断信息,不使能
+        local_bh_disable()  //禁止中断底半部
+        local_bh_enable()   //使能中断底半部
+        中断上下半部
+            防止中断处理时间过长,故此分为上下部,上半部处理事件快速,剩余交由下半部处理
+            上半部
+                中断接收,不可被打断屏蔽中断,将数据传入内核,需要处理事件挂载在对应下半部队列中,继续等待新中断
+                若上半部等待时间过长,数据丢失
+            下半部 
+                执行期间可以响应所有的中断,处理中断事件
+                软中断,tasklet,工作队列等实现
+    原子操作
+        原子操作与CPU相关,ARM架构中为LDREX和STREX
+            LDREX 加载
+            STREX 存储
+                第一个寄存器是值值为1,存储不成功,没有并发存储,strex在第一个寄存器设置0,存储成功
+        整型变量
+            设置原子变量的值(定义并初始化)
+                //atomic_xxx()
+                atomic_set(stomic_t *v, int i); 
+                stomic_t v = ATOMIC_INIT(0);
+            操作
+                atomic_read(stomic_t *);
+                atomic_(add/sub)(int i, stomic_t *v);
+                atomic_(inc/dec)(stomic_t *v);
+            操作并测试 
+                atomic_(add/sub)_and_test(int i, stomic_t *v);
+                atomic_dec_and_test(stomic_t *v);
+            操作并返回新值
+                atomic_(add/dec)_return(int i, stomic_t *v);
+                atomic_(inc/dec)_return(istomic_t *v);
+        位
+            设置第nr位
+                set_bit(nr, void *addr);
+                clear_bit(nr, void *addr);
+                change_bit(nr, void *addr); //反置
+            测试
+                test_bit(nr, void *addr);
+            测试并操作
+                test_and_set_bit(nr, void *addr);
+                test_and_clear_bit(nr, void *addr);
+                test_and_chang_bit(nr, void *addr);
+                
+        static atomic_t c = ATOMIC_INIT(1);
+        if(!(atomic_dec_and_test(v))){
+            atomic_inc(v);  //设备已经被一个打开
+            return -EBUSY;
+        }
+                
+    自旋锁
+        ARM借用原子操作和内存屏障指令实现,ldrex/strex,dmb/dsb,wfe/sev
+        获得自旋锁,禁止该核抢占调度,没有禁止另一个核抢占调度
+        得到锁的代码在执行临界区时,可能受到中断和底半部影响
+        定义初始化
+            spinlock lock;
+            spin_lock_init(lock);
+        获取锁
+            spin_lock(lock) //未获取到一直等待
+            spin_trylock(lock) //获取到返回true,否则返回false
+        释放
+            spin_unlock(lock)
+        锁+屏蔽中断
+            spin_lock_irq() = spin_lock + local_irq_disable
+            spin_unlock_irq() = spin_unlock + local_irq_enable
+            spin_lock_irqsave() = spin_lock + local_irq_save
+            spin_unlock_irqrestore() = spin_unlock + local_irq_restore
+            spin_lock_bh() = spin_lock + local_bh_disable
+            spin_unlock_bh() = spin_unlock + local_bh_enable
+        进程/中断访问同一片临界资源
+            进程上下文调用
+                spin_lock_irqsave() //该核上的中断不可进入
+                spin_unlock_irqrestore()
+                spin_lock_bh()
+                spin_unlock_bh()
+            中断上下文
+                spin_lock()
+                spin_unlock()
+        注意
+            临界资源少使用
+            可能导致死锁(递归使用一个自旋锁)
+            获得自旋锁后在阻塞,可能导致内核崩溃
+    读写自旋锁
+        允许多个读,只有一个写,读写互斥
+        定义初始化
+            rwlock_t
+            rwlock_init(rwlock_t *)
+        读写锁定(读取前先锁定)
+            read_lock(rwlock_t *)
+            read_unlock(rwlock_t *)
+            read_lock_irqsave(rwlock_t *, unsigned long)
+            read_unlock_irqrestore(rwlock_t *, unsigned long)
+            read_lock_irq(rwlock_t *)
+            read_unlock_irq(rwlock_t *)
+            read_lock_bh(rwlock_t *)
+            read_unlock_bh(rwlock_t *)
+            
+            write_lock(rwlock_t *)
+            write_unlock(rwlock_t *)
+            write_lock_irqsave(rwlock_t *, unsigned long)
+            write_unlock_irqrestore(rwlock_t *, unsigned long)
+            write_lock_irq(rwlock_t *)
+            write_unlock_irq(rwlock_t *)
+            write_lock_bh(rwlock_t *)
+            write_unlock_bh(rwlock_t *)
+    顺序锁
+        正在读时候,可以写,读需要多次读数据直到有效
+        互斥资源不能是指针,读者会丢失数据导致内核崩溃
+        定义初始化
+            seqlock_t 
+            seqlock_init(seqlock_t)
+            DEFINE_SEQLOCK()
+        读锁定
+            write_seqlock(seqlock_t *)
+            write_sequnlock(seqlock_t *)
+            write_seqlock_irqsave(seqlock_t *, unsigned long)
+            write_sequnlock_irqrestore(seqlock_t *, unsigned long)
+            write_seqlock_irq(seqlock_t *)
+            write_sequnlock_irq(seqlock_t *)
+            write_seqlock_bh(seqlock_t *)
+            write_sequnlock_bh(seqlock_t *)
+            
+            访问共享资源前调用该函数,返回顺序锁sl的当前顺序号
+                read_seqbegin(const seqlock_t *)
+                read_seqbegin_irqsave(seqlock_t, unsigned)
+            访问完成后需要检查
+                read_seqretry(const seqlock_t, unsigned)
+                read_seqbegin_irqsave(seqlock_t, unsigned, unsigned long)
+    RCU
+        写者之间同步开销大
+        写者拷贝副本修改,在合适时机进行回调
+        读
+            rcu_read_lock()
+            rcu_read_unlock()
+            rcu_read_lock_bh()
+            rcu_read_unlock_bh()
+        同步
+            阻塞写者,直到当前CPU上所有已经存在的读者完成读临界区,不等待后续读者
+                synchronize_rcu()   
+            挂接回调,不使写者阻塞,把函数func挂接到RCU回调函数链上,立即返回,挂接的函数在前面读者完成后执行
+                call_rcu(struct rcu_head *head, 
+                                void (*func)(struct rcu_head *rcu))
+            RCU指针操作
+                rcu_assign_pointer(p, v)    //RCU指针赋一个新值
+                rcu_dereference(p)           //读端获取一个RCU保护指针,一般需要read_lock()和read_unlock()直接调用
+                rcu_access_pointer(p)       //获取指针,只关心本身值
+        内核中专门使用RCU链表
+            tbd
+    信号量
+        内核倾向于使用mutex作为互斥,信号量用作于同步
+        A执行down等待信号量,B执行释放,A同步等待B,应该执行顺序1234
+        A:P 代码区3 代码区4
+        B:V 代码区1 代码区2
+        P/V操作
+            P: 判断sem>0 执行-1操作并执行,否则加入等待队列
+            V: 判断等待队列, 有则唤醒队列中等待进程, 否则sem+1
+        定义初始化
+            struct semaphore sem;
+            sema_init(struct semaphore *, init);
+        获取与释放
+            获取信号量,会导致睡眠不能在中断上下文使用
+                down(struct semaphore *)
+            能被信号打断,信号打断也会导致函数返回非0值,通常返回ERESTARTSYS
+                down_interruptible(struct semaphore *)
+            尝试获取信号量,可以返回0,否则返回非0,不会导致睡眠
+                down_trylock(struct semaphore *)
+            up(struct semaphore *)
+    互斥体
+        互斥体实现依赖锁,属于进程级,用于多个进程之间对资源的互斥,竞争失败引起进程上下文切换
+        当进程占用资源时间较长时,选用互斥体
+        定义初始化
+            struct mutex ;
+            mutex_init();
+        获取与释放
+            mutex_lock(struct mutex *)
+            mutex_lock_interruptible(struct mutex *)
+            mutex_trylock(struct mutex *)
+            mutex_unlock(struct mutex *)
+    完成量
+        定义初始化
+            struct completion
+            init_completion(struct completion *)    //完成量为0表示没有完成的状态
+            reinit_completion(struct completion *)
+        获取与释放
+            wait_for_completion(struct completion *)
+            complete(struct completion *)
+            complete_all(struct completion *)
+
+等待队列
+        定义初始化
+            wait_queue_head_t
+            int_waitqueue_head(wait_queue_head_t *)
+            DECLARE_WAIT_QUEUE_HEAD(name)
+        定义名为name的等待元素
+            DECLARE_WAITQUEUE(name, tsk)
+                current全局指针,指向指向当前进程的task_struct,表示当前进程
+                    tsk : current
+        添加/移除
+            将元素wait添加/移除
+            add_wait_queue(wait_queue_head_t *, wait_queue_t *)
+            remove_wait_queue(wait_queue_head_t *, wait_queue_t *)
+        等待事件
+            第二个参数condition必须满足,否则继续阻塞
+            超过jiffy为单位的timeout无论condition是否满足均返回
+                wait_event(wait_queue_head_t *, condition)
+                wait_event_interruptible(wait_queue_head_t *, condition)
+                wait_event_timeout(wait_queue_head_t *, condition, timeout)
+                wait_event_interuptible_timeout(wait_queue_head_t *, condition, timeout)
+        唤醒等待队列
+            wake_up(wait_queue_head_t *)    //可以唤醒TASK_UNINTERRUPTIBLE和TASK_INTERRUPTIBLE(浅睡眠信号可唤醒)
+            wake_up_interruptible(wait_queue_head_t *)  //只可唤醒TASK_INTERRUPTIBLE
+            sleep_on(wait_queue_head_t *)
+            interruptible_sleep_on(wait_queue_head_t *)
+        调度
+            __set_current_state(...)   //设置进程睡眠状态
+            schedule()  //调度其它进程
+
+阻塞与非阻塞I/O与异步通知
+    阻塞:用户阻塞至可访问
+    非阻塞:用户可以用轮询是否可以访问,用户态不必阻塞,内核中驱动使用poll
+    异步:用户根据设备自身通知进行访问,用户态不必阻塞,内核中驱动用信号
+    内核态中可使用等待队列,调用其他进程
+            
+    轮询操作
+        用户态
+            select
+                监听读,写,异常的文件描述符集合,文件满足时返回
+                调用时,驱动中的poll均被调用
+            poll
+            epoll
+                多个fd时,用epoll好
+        内核态
+            poll(struct file *, struct poll_table *)
+                1.对于可能引起文件状态变化的等待队列调用poll_wait(),将对应的等待队列头部加入poll_table中
+                2.返回表示是否能对设备进行无阻塞读写访问的掩码
+            向poll_table注册队列的函数,把当前进程添加到wait参数指定的等待列表中,让唤醒参数,queue可以唤醒因select而睡眠的进程
+                poll_wait(struct file *, wait_queue_head_t *, struct poll_table *)
+    信号
+        用户态
+            void (*signal(int signum, void (*handle)(int)))(int)  //signal(...) 为一个指针函数,返回值函数指针     
+            typedef void (*sighandler_t)(int);
+            sighandler_t signal(int signum, sighandler_t handler);
+                第一个参数指定信号的值(信号列表定义),第二个指定前面信号值的处理函数,
+                    SIG_IGN : 表示忽略
+                    SIG_DFL : 采用系统默认方式处理
+                    用户自定义 : 前面信号捕获后,该函数将被执行
+            sigaction(int ,const struct sigaction *, struct sigaction *)
+                第一个参数信号的值,第二个参数新处理方式,若为NULL以缺省处理,第三个参数保存原来的处理方式
+                二三参数为空则为检测信号不处理
+        内核态
+            9.2.3信号的释放
+platform设备驱动
+
+    虚拟总线,将设备信息和驱动程序分离
+    /sys/bus/platform
+    device
+        挂在platform下的设备
+    drivers
+        与某种设备相对于的驱动
+        
+    struct platform_device {
+        const char	    *name;      
+        int		        id;         
+        bool		    id_auto;
+        struct device	dev;        
+        u32		        num_resources;      
+        struct resource	*resource;  flags
+        const struct platform_device_id	*id_entry;
+        char *driver_override; /* Driver name to force a match */
+        /* MFD cell pointer */
+        struct mfd_cell *mfd_cell;
+        /* arch specific additions */
+        struct pdev_archdata	archdata;
+    }[] = {
+        .name = "",     //设备名称,与驱动名称匹配
+        .id = ,         //插入该总线,具有相同name的设备编号,-1表示只有一个设备
+        .resource = ,   //有宏定义 用于资源申请 start end name
+        .num_resources = , //resource 数量 ARRAY_SIZE()
+        .dev = {
+            .release = ,    // .release,向内核提供release函数,可以设置私有数据
+        },
+    };
+    struct platform_driver {
+        int (*probe)(struct platform_device *);     
+        int (*remove)(struct platform_device *);    
+        void (*shutdown)(struct platform_device *);
+        int (*suspend)(struct platform_device *, pm_message_t state);
+        int (*resume)(struct platform_device *);
+        struct device_driver driver;
+        const struct platform_device_id *id_table;
+        bool prevent_deferred_probe;
+    }[] = {
+        {
+            .driver = {
+                .name = "", //匹配
+            },
+            .probe = ,  //匹配时调用
+            .remove = , //卸载时调用
+        },
+        {
+            .driver = {
+                .name = "", //匹配
+            },
+        },
+    };
+    
+    获取device资源信息
+        platform_get_resource
+    在内存申请资源信息
+        request_mem_region
+    物理地址映射逻辑地址,供驱动程序操作
+        ioremap
+
+
+
+    
+I2C
+    总线驱动
+        适配器数据结构I2C_adapter
+        适配器的算法数据结构I2C_algorithm
+        控制适配器产生通信信号的函数
+    设备驱动
+        通过适配器与CPU交互
+        I2C_driver I2C_client
+    i2c-core.c
+        实现接口,与核心功能
+    i2c-dev.c
+    
+    gpio模拟
+        i2c_bit_add_bus(struct i2c_adapter *adap)
+        struct i2c_adapter = {
+            .algo_data = i2c_algo_bit_data, //算法数据gpio模拟get set ... 
+            .delay = ,  //5us 标准速率 (10^6 / 5 / 2) = 100kbits = 100KHZ 
+            .timeout = ,
+        };
+        
+        struct i2c_algo_bit_data = {
+            .data = ,       //setscl ...等函数的参数 
+            .setscl = ... , //setscl方法
+            .setsda = ... , //
+            .getsda = ... , //
+        };
+        
+pci
+    driver/pci/quirks.c中注册函数修复bug
+        当scan root port 时发现vendor
+        
+    注册XXX(触发时机) include/linux/pci.h
+        DECKARE_PCI_FIXUP_XXX(vendor, device, func)
+    
+     
+        
+    
+
+

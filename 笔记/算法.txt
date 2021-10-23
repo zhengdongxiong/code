@@ -1,0 +1,1115 @@
+
+常用时间复杂度
+O(1)<O(logn)<O(n)<O(nlogn)<O(n^2)<O(n^3)<O(2^n)<O(n!)<O(n^n)
+
+
+/***********************************************************************
+
+                            排序
+
+***********************************************************************/
+排序：
+void Swap(int* a, int* b)
+{
+    /*if(a == b)
+        return;
+    *a = ( *a ) ^ ( *b );
+    *b = ( *a ) ^ ( *b );
+    *a = ( *a ) ^ ( *b );*/
+    int tmp;
+    tmp = *a;
+    *a = *b;
+    *b = tmp;
+}
+逆序对
+    有多少个逆序对 交换多少次
+冒泡排序(N)(N^2)(稳定)
+void Bubblesort(int *A, int N)
+{
+    for(i=0; i<N-1; i++)
+        for(j=i; j<N; j++)
+        {
+            if(A[i]<A[j])
+                Swap(A[i], A[j]);
+        }
+}
+
+插入排序(N)(N^2)(稳定)
+void Insertsort(int *A, int N)
+{
+    for(i=1; i<N; i++)
+    {
+        tmp = A[i];
+        for(j=i; j>0 && A[j-1]>tmp; j--)
+            A[j] = A[j-1];
+            
+        A[j] = tmp;
+    }
+}
+
+
+希尔排序()(N^2)(关键取增量序列)
+一次隔几个进行插入排序
+void Shellsort(int *A, int N)
+{
+    int D,i,j;
+    for(D=N/2; D>0; D/=2)
+    {
+        for(i=D; i<N; i++)
+        {
+            tmp = A[i];
+            for(j=i; j>=D && A[j-D]>tmp; j-=D)
+                A[j] = A[j-D];
+                
+            A[j] = tmp;
+        }
+    }
+}
+
+选择排序(N^2)
+void Selectsort(int* A, int N)
+{
+    int pos = 0;
+    int i = 0;
+    for(; i < N; i++)
+    {
+        pos = i;
+        //  找出从i开始，到数组末尾这段数组中最小的数，pos标志的是这个最小的数在数组中的位置
+        for(int j = i + 1; j < N; j++)
+        {
+            if(A[j] < A[pos])
+            {
+                pos = j;
+            }
+        }
+        Swap(A+i, A+pos);  //  交换两个数的位置
+    }
+}
+
+堆排序:(NlogN)()
+void BuildHeap(int* A, int N)
+{
+    int i;
+    int child;
+    for(i = (N - 1)/2; i >= 0; i--)
+    {
+        child = 2 * i + 1;
+        if(child < N - 1 && A[child] < A[child + 1])
+            child++;
+        if(A[child] > A[i])
+            Swap(&A[child], &A[i]);
+    }
+        
+}
+
+void Heapsort(int* A, int N)
+{
+    int i;
+    BuildHeap(A, N);
+
+    for(i = N - 1; i > 0; i--)
+    {
+        Swap(&A[0],&A[i]);
+        BuildHeap(A, i - 1);
+    }
+}
+
+归并排序：(NlogN)外部排序
+//并
+//Left为起始位置
+//Right为右边起始位置
+//RightEnd为左边结束位置
+void Merge(int* A, int* tmpA, int Left, int Right, int RightEnd)
+{
+    int LeftEnd = Right - 1;
+    int tmp = Left;
+    
+    while(Left <= LeftEnd && Right <= RightEnd)
+    {
+        if(A[Left] < A[Right])
+            tmpA[tmp++] = A[Left++];
+        else
+            tmpA[tmp++] = A[Right++];
+    }
+    while(Left <= LeftEnd)
+        tmpA[tmp++] = A[Left++];
+    while(Right <= RightEnd)
+        tmpA[tmp++] = A[Right++];
+}
+
+//一趟归并
+void Merge_pass(int* A, int* tmpA, int N, int Length)
+{
+    
+    int i;
+    //length 划分有序子列长度 起始1
+    //结束条件总个数前两个有序列             第二次[2]开始
+    //2*length -->> 2个子列        因为每次排序两个序列 每次跳过两个序列
+    //4个元素 开始1个有序子列 起始[0]   第二个元素位置[1]  结束位置[1]
+    //i起始位置 i+length为第二个序列起始位置
+    //i+ length +length 为第三个起始位 - 1 为第二个结束位
+    for(i = 0; i < N - 2 * Length; i += 2 * Length)
+        Merge(A, tmpA, i, i + Length, i + 2 * Length - 1);
+    //有两个子序列    起始位置+一个序列<N --> 有两个序列
+    if(i + Length < N)
+        Merge(A, tmpA, i, i + Length, N - 1);
+    else
+    {
+        while(i < N)
+        {
+            tmpA[i] = A[i];
+            i++;
+        }
+    }//剩余奇数个序列
+}
+
+void Merge_sort(int* A, int N)
+{
+    int Length = 1;
+    int* tmpA = (int* )malloc(N * 4);
+    if(tmpA == NULL)
+        return;
+    //一个循环做两趟归并
+    //刚好将A-->tmpA 再将tmpA-->A中
+    while(Length < N)
+    {
+        //开始有序子列长度为1 一次归并后为2 二次4.....
+        Merge_pass(A, tmpA, N, Length);
+        Length *= 2;    
+        Merge_pass(tmpA, A, N, Length);
+        Length *= 2;
+    }
+    free(tmpA);
+}
+
+快速排序(n^n)(nlogn)
+    /*
+    非递归
+    头入栈
+    尾入栈
+    while(!栈空)
+    Right出栈
+    Left出栈
+    调用
+    i = Quat//快排返回基准位置
+    if(i-1>left)    //有左边   
+        left
+        i-1左边序列首尾入栈
+    if(i+1<Right)   //有右边   
+        i+1
+        right右边序列首尾入栈
+    */
+    
+int Quick(int* A, int Left, int Right)
+{
+    if(Left == Right)
+        return -1;
+    int k = A[Left];
+    int i = Left, j = Right;
+    while(i < j)
+    {
+        while(i < j && A[j] >= k)
+            j--;
+        while(i < j && A[i] <= k)
+            i++;
+        if(i<j)
+            Swap(&A[i], &A[j]);
+    }
+    Swap(&A[i], &A[Left]);
+    return i;
+}
+void Quick_sort(int* A, int Left, int Right)
+{
+    int i;
+    S_Q S;
+    InitStack(&S);
+    S_push(&S, Left);   //左边入栈
+    S_push(&S, Right);
+    while(S_empty(&S))
+    {
+        Right = S_pop(&S);
+        Left = S_pop(&S);
+        i = Quick(A, Left, Right);
+
+        if(i - 1 > Left)
+        {
+            S_push(&S, Left);
+            S_push(&S, i - 1);
+        }
+        if(i + 1 < Right)
+        {
+            S_push(&S, i+1);
+            S_push(&S, Right);
+        }
+    }
+    DelStack(&S);
+}
+        
+    
+////直接在里面交换
+void Quat(int* A, int Left, int Right)
+{
+    if(Left >= Right)
+        return;
+        //return -1;
+
+    int i, j;
+    int k;
+    k = A[Left];
+    i = Left;
+    j = Right;
+    while(i < j)
+    {
+        while(i < j && A[j] <= k)   //若a[j] < k 发生a[j] == k 交换到最后 a[0] == 49  a[mid] = 49 下次排序打乱
+            j--;
+        //Swap(&A[i], &A[j]);
+        while(i < j && A[i] >= k)
+            i++;
+        if(i<j)
+            Swap(&A[i], &A[j]);
+    }
+    Swap(&A[i], &A[Left]);//i为基准位置
+
+    Quat(A, Left, i - 1);
+    Quat(A, i + 1, Right);
+    //return i; 非递归返回
+}
+
+int Median(int* A, int Left, int Right)
+{
+    int center = ( Left + Right ) / 2;
+    if(A[Left] > A[center])
+    {
+        Swap(&A[Left], &A[center]);
+    }
+    if(A[Left] > A[Right])
+    {
+        Swap(&A[Left], &A[Right]);
+    }
+    if(A[center] > A[Right])
+    {
+        Swap(&A[center], &A[Right]);
+    }
+    Swap(&A[center], &A[Right-1]);
+
+    return A[Right-1];
+}
+
+//相当于先提取出来
+void Quicksort(int* A, int Left, int Right)
+{
+    //选取主元
+    if(Left < Right)
+    {
+        int Pivot = Median(A, Left, Right);
+        int i = Left + 1;
+        int j = Right - 2;
+        while(1)
+        {
+            while(A[i] < Pivot)
+                i++;
+            while(A[j] > Pivot)
+                j--;
+            if(i < j)
+                Swap(&A[i], &A[j]);
+            else
+                break;
+        }
+        Swap(&A[i], &A[Right-1]);
+        Quicksort(A, Left, i-1);
+        Quicksort(A, i+1, Right);
+    }
+}
+
+基数排序:
+//获取对应位数据
+//pos = 1为个位 2十位
+int GetNumPos(int num, int pos)
+{
+    int tmp = 1;
+    int i = 0;
+    for(i = 0; i < pos-1; i++)
+        tmp *= 10;
+    return ( num / tmp ) % 10;
+}
+
+void Radix(int* A, int** RadixArry, int N)
+{
+    int i = 0, j = 0, k = 0, L = 0;
+    int num = 0;    //记录数据位数的值
+    int index = 0;
+
+    //写函数获取最大数据的位数
+    //如最大数据位为3位
+    for(k = 0; k < 3; k++)
+    {
+        for(i = 0; i < N; i++)
+        {
+            num = GetNumPos(*( A + i ), k + 1);
+            //[num][N]  存储 当前数组[num]里面个数index
+            index = RadixArry[num][N];
+            RadixArry[num][index] = *( A + i );     //将数字放进去
+            index++;
+            //存储num桶中的个数
+            RadixArry[num][N] = index;
+        }
+        //将数据返回给A
+        for(i = 0; i < 10; i++)
+        {
+            for(j = 0; RadixArry[i][N] != 0 && j < RadixArry[i][N]; j++)
+            {
+                *( A + L ) = RadixArry[i][j];
+                L++;
+            }
+        }
+        //桶里面的个数复位
+        for(i = 0; i < 10; i++)
+        {
+            RadixArry[i][N] = 0;
+        }
+        L = 0;
+    }
+}
+
+//基数排序
+void Radixsort(int *A, int N)
+{
+    int* RadixArry[10]; //十进制最大0-9
+    int i = 0;
+
+    //分配空间
+    for(i = 0; i < 10; i++)
+    {
+        RadixArry[i] = (int* )malloc(4 * ( N + 1 ));
+        if(RadixArry[i] == NULL)
+            return;
+        RadixArry[i][N] = 0;    //  统计当前桶里面个数
+    }
+    
+    Radix(A, RadixArry, 15);
+    
+    //删除
+    for(i = 0; i < 10; i++)
+        free(RadixArry[i]);
+}
+
+桶排序：
+    将待排序元素划分到不同的桶，每个桶分别进行排序，将各个桶中的元素合并成一个大的有序序列。
+    
+/***********************************************************************
+
+                            算法
+
+***********************************************************************/
+
+题目：快速找到单链表的中间结点
+方法： ①、遍历一遍
+    ②、快慢指针
+实现随机生成20个元素的链表，快速查找中间结点的值
+
+约瑟夫环
+    f[1] = 0
+    f[n] = (f[n-1]+m) % n  (n>1) n个人玩 报m退出 结果+1 为胜利
+
+    f[4] = (f[3]+3) % 4 = 0
+    f[3] = (f[2]+3) % 3 = 1
+    f[2] = (0+3) % 2 = 1
+    s = 0; 
+    for(i=2; i<=n; i++)
+        s = (s + m) % i;
+
+    return s+1;
+
+
+汉诺塔
+    （1）最后一个从x直接移到z
+    （2）将n-1个盘从x借助z移到y上，将第n个盘子从x移到z上，将n-1个盘从y借助x移到z上
+
+链表部分翻转
+    1→2→3→4→5→6 翻转前2(变量k)个
+
+    Head→   1→  2→  3→  4→  5→  6
+            new     old     temp    
+
+    Head→   1   ←2  ←3  ←4  5→  6
+                        new old temp
+
+int cnt = 1;
+Head->next = 1;
+new = Head->next;   //(1)
+old = new->next;    //(2)
+
+while(cnt < k)  [1<4 做3次 4-1 = 3次 (2)old-->(5)]    [0<4 做4次 4-0 = 4次] [0<=4 做5次 4-0+1 = 5次]
+{
+    temp = old->next;
+    old->next = new;
+    new = old;
+    old = temp;
+    //temp = temp->next;
+    cnt++;
+}
+Head->next->next = old;
+    
+二分查找法：logN
+    长度为N
+    二分N/2   未找到
+    二分N/4   
+    直到M次后找到
+        N*（1/2）^M = 1
+        2^M = N ==> logN = M
+        
+//K查找元素
+//array排列好数组
+int Binary(int K, int *array)
+{
+    int left,right,mid;
+    
+    left = 0;
+    right = 数组长度
+    
+    while(left <= right)
+    {
+        mid = (left+right)/2;
+        
+        if(K > *(array+mid))
+            left = mid + 1;
+        else if(K < *(array+mid))
+            right = mid - 1;
+        else
+            return mid;
+    }
+    //right < left 遍历结束
+    return -1;
+}
+
+
+
+
+计算二进制里面1和0的个数：
+    N = N & (N-1)   将最低位1变为0 while(N)   1的个数
+    N = N | (N+1)   将最低位0变为1 while(N+1) 0的个数
+    
+    
+    
+已知先序中序遍历 可不利用构造树    确定后序遍历
+//与solve函数接口没完成
+void Stack()
+{
+    while(栈 != 空)
+    出栈
+    
+    调用
+    solve()
+    N数组长度
+    I根结点位置
+    if(L != 0)
+        左边入栈 入栈要入改变的东西
+        L = I
+        入栈(preLength+1, inLength, postLength, L)(出栈L对应N)
+    if(R != 0)
+        右边入栈
+        R = N-L-1
+        入栈(preLength+L+1, inLength+L+1, postLength+L, R)(出栈R对应N)
+}
+
+//void solve(int preLength,int inLength, int postLength, int N, int I)
+    数组长度
+void solve(int preLength,int inLength, int postLength, int n)
+{
+    if(n == 0)
+        return;
+    if(n == 1)
+    {
+        post[postLength] = pre[preLength];
+        return;
+    }
+    
+    root = pre[preLength];
+    post[postLength+n-1] = root;
+    for(i = 0; i<n; i++)
+        if(in[inLength+i] == root)
+            break;
+    L = i; 
+    R = n-L-1;
+    solve(preLength+1, inLength, postLength, L);
+    solve(preLength+L+1, inLength+L+1, postLength+L, R);
+}
+
+        
+    
+完全二叉搜索树 
+    H层 结点个数2^(H-1);
+    总数2^H-1(H为上面完全二叉树的层数)+X(最后一层不完美二叉树个数  ) = N 
+    已知10个数 左子树必定6个数 右子树3个数
+    //从数组中找到中间数填入TRoot中
+    初始          0       N-1     0   
+    012345  6   789 
+    6381579024
+void solve(int Left, int Right, int TRoot)//Left为数组第一个元素 Right为最后一个 TRoot为新数组根的位置
+{
+    n = Right - Left - 1;//总个数
+    if(n == 0)
+        return;
+    L = GetLeft(n); //左边元素
+    T[TRoot] = A[Left + L];
+    solve(Left, Left+L-1, 2*TRoot+1);
+    solve(Left+L+1, Right, 2*TRoot+2);
+    
+}
+2^H-1+X = N;
+(1)H = log(2)(N+1)
+(2)X = min{X, 2^(H-1)}
+(3)L = 2^(H-1) - 1 + X
+void GetLeft(int n)
+
+
+无权图的单元最短路算法：
+dist[w] = s到w的距离
+void Unweighted(Vertex S)
+{
+    入队
+    while(队！=空)
+    {
+        V = 出队
+        for(V每个邻接点)
+        {
+            if(dist[w] == -1)
+                dise[w] = dist[V]+1;
+                path[w] = V;    //路径
+                入队
+        }
+    }
+}
+
+
+有权图的单源最短路：
+while(1)
+{
+    V = 未收录顶点中dist最小值;  //建立堆实现
+    if(V不存在)
+        break;
+    访问标志;
+    for(V每个邻接点)
+        if(未访问)
+            if(dist[V]+E<v,w> < dist[w])
+            {
+                dist[w] = dist[V]+E<v,w>;
+                pathp[w] = V;
+            }
+}
+    
+图算法:
+    。。。。。
+    
+
+数的翻转：
+int reverse(int x)
+{
+    int max = 0x7fffffff, min = 0x80000000;//int的最大值最小值
+    long temp = 0;
+    while(x != 0)
+    {
+        //123456        
+        //tmp = 6 -->60+5
+        //12345
+        temp = temp * 10 + x % 10;
+        x /= 10;
+    }
+
+    if(temp > max || temp < min)
+    {
+        return 0;
+    }
+    else
+    {
+        return (int )temp;
+    }
+}
+    
+两数之和：哈希表
+typedef struct hash_node {
+    int id;            /* we'll use this field as the key */
+    int index;.
+    UT_hash_handle hh; /* makes this structure hashable */
+} hash_node;
+
+
+    1 2 3 4 5 
+    8 7 6 5 4
+表：1 2 3 4 
+int* twoSum(int* nums, int numsSize, int target, int* returnSize){
+    int *two_nums = (int *)malloc(sizeof(int)*2);
+    hash_node *hash_table = NULL, *hash_item1 = NULL, *hash_item2 = NULL;
+    for (int i = 0; i < numsSize; i++) {
+        // 查找哈希表中是否存在满足和为target的另一个值,若存在直接返回
+        int other_id = target - *(nums+i);
+        HASH_FIND_INT(hash_table, &other_id, hash_item1);
+        if (hash_item1) {
+            two_nums[0] = hash_item1->index;
+            two_nums[1] = i;
+            *returnSize = 2;
+            return two_nums;
+        }
+        // 将本次遍历的值放入哈希表,value为数组下标,key为对应数值
+        hash_item2 = (hash_node *)malloc(sizeof(hash_node));
+        hash_item2->id = *(nums+i);
+        hash_item2->index = i;
+        HASH_ADD_INT(hash_table, id, hash_item2);
+    }
+    return two_nums;
+}
+
+罗马数字转整数：
+
+#define nI 1
+#define nV 5
+#define nX 10
+#define nL 50
+#define nC 100
+#define nD 500
+#define nM 1000
+
+int romanToInt(char * s)
+{
+    int sum = 0;
+    int i = 0;
+    while(*(s+i))
+    {
+        switch(*(s+i))
+        {
+            case 'I':
+                if(*(s+i+1) == 'V' || *(s+i+1) == 'X')
+                    sum -= nI;
+                else
+                    sum += nI;
+                break;
+            case 'V':
+                sum += nV;
+                break;
+            case 'X':
+                if(*(s+i+1) == 'L' || *(s+i+1) == 'C')
+                    sum -= nX;
+                else
+                    sum += nX;
+                break;
+            case 'L':
+                sum += nL;
+                break;
+            case 'C':
+                if(*(s+i+1) == 'D' || *(s+i+1) == 'M')
+                    sum -= nC;
+                else
+                    sum += nC;
+                break;
+            case 'D':
+                sum += nD;
+                break;
+            case 'M':
+                sum += nM;
+                break;
+        }
+        i++;
+    }
+    
+    if(sum > 3999 || sum < 1)
+        return -1;
+    return sum;
+}
+
+最长公共前缀
+
+char * longestCommonPrefix(char ** strs, int strsSize)
+{
+    if(strsSize==0)
+        return "";
+    if(strsSize==1)
+        return strs[0];
+    int i=0,j=0;
+    while(1)
+    {
+        if(strs[i][j]=='\0')            
+            break;
+        if(strs[i][j]==strs[++i][j])
+        {
+            if(i==strsSize-1)
+            {
+                j++;
+                i=0;
+            }
+        }
+        else
+            break;
+    }
+    char* res=(char*)malloc(j+1);
+    res=memset(res,0,j+1);
+    res=strncpy(res,strs[0],j);
+    return res;
+}
+
+KMP模式匹配 
+/***************************************
+
+match(j)    满足p0.....pi = p(j-i)......pj(i<j)
+
+pattern     a   b   c   a   b   c   a   c   a   b
+j           0   1   2   3   4   5   6   7   8   9
+match       -1  -1  -1  0   1   2   3   -1  0   1
+
+***************************************/
+
+
+void BuildMatch(char* pattern, int* match)
+{
+    int i, j;
+    int m = strlen(pattern);
+
+    match[0] = -1;
+    for(j = 1; j < m; j++) 
+    {
+        //match存放匹配最后的位置
+        i = match[j - 1];   //将前一个match值保存在里面
+
+        while(( i >= 0 ) && ( pattern[i + 1] != pattern[j] ))
+        {
+            i = match[i];
+        }
+
+        if(pattern[i + 1] == pattern[j])//找到字符相等
+        {
+            match[j] = i + 1;   //前一个match+1     前一个数match值为 数组里面匹配的最后位置
+        }
+        else
+            match[j] = -1;
+    }
+}
+
+
+int KMP(char* string, char* pattern)
+{
+    int n = strlen(string);
+    int m = strlen(pattern);
+    int s = 0, p = 0, *match;
+    if(n < m)
+        return -1;
+    match = (int* )malloc(sizeof(int) * m);     //申请与匹配串长度相等的空间
+    BuildMatch(pattern, match);
+    while(s < n && p < m)
+    {
+        if(string[s] == pattern[p])
+        {
+            s++;
+            p++;
+        }
+        //前面已经匹配了
+        //不匹配时候当前子串在 头的位置
+        //p为当前不匹配的位置
+        //match[p-1]头开始跟p匹配的位置   在+1往后一个
+        else if(p > 0)  
+        {
+            p = match[p - 1] + 1;
+        }
+        else
+            s++;
+    }
+    free(match);
+    return ( p == m ) ? ( s - m ) : -1;
+}
+
+二进制相加
+char* addBinary(char* a, char* b) 
+{
+    int i = strlen(a);
+    int j = strlen(b);
+    
+    int len = i > j? i: j;
+    //11 1 长度2 申请4个空间 进位用到3个 剩余一个补\0
+    char* res = (char*)malloc(sizeof(char) * (len + 2));
+    res[++len] = 0;
+    
+    char carry = '0';
+    char pa, pb;
+    //len > 1 留下一个[0]
+    //输入a = 0 b = 0 时输出0  len = 1 输出res+len
+    //len = 1 carry == '1' 时候还有进位 如：a = 11 b = 1 [0]填充'1'
+    while(len > 1 || carry == '1')  
+    {
+        pa = i > 0? a[--i]: '0';
+        pb = j > 0? b[--j]: '0';
+        //改变len>=1 [len--] [1--]-->0 输入0 0 错误 输出00(res+len(0)) 
+        //[--len]顺序改变错误 [2--]-->1 不满足 len>1 少一位[1]
+        res[--len] = pa ^ pb ^ carry; // 当前位    
+        carry = (pa & carry) | (pb & carry) | (pa & pb); //进位
+    }
+    return res + len;   //输入0 0时候跳过第一个字符 必定输出len+res
+}
+
+字符串数字相加 十进制
+char * addStrings(char * num1, char * num2)
+{
+    int i = strlen(num1);
+    int j = strlen(num2);
+    int length = i > j ? i : j;
+    //两个5位 最多 6位 申请7位 最后一位补'\0'
+    char * res = (char *)malloc(length+2);
+    res[++length] = 0;
+    int cnt = 0;
+    int pa,pb;
+    while(length>1 || cnt == 1)
+    {
+        pa = i > 0 ? num1[--i] - '0' : 0;
+        pb = j > 0 ? num2[--j] - '0' : 0;
+        res[--length] = ((pa) + (pb) + (cnt))%10 + '0';
+        if(pa+pb+cnt > 9)
+            cnt = 1;
+        else
+            cnt = 0;
+        //cnt = (pa & pb) | (pa & cnt) | (pb & cnt);
+    }
+
+    return res+length;
+
+}
+
+分发饼干：
+int findContentChildren(int* g, int gSize, int* s, int sSize){
+
+    //孩子
+    //孩子个数
+    //饼干
+    //饼干个数
+    int i = 0, j = 0;
+    int cnt = 0;
+    Quick_sort(g, 0, gSize-1);
+    Quick_sort(s, 0, sSize-1);
+    while(i < gSize && j < sSize)
+    {
+        //g[i]  小朋友
+        //s[j]  饼干
+        if(g[i] > s[j])
+        {
+            j++;
+        }
+        else
+        {
+            cnt++;
+            i++;
+            j++;
+        }
+     }
+   
+    return cnt;
+}
+
+两数和
+//38 3+8 = 11  1+1 = 返回2
+//38-11 = 27
+//差值为9的倍数 num % 9
+//9的倍数返回9 小于9直接返回
+int addDigits(int num){
+
+    if(num<10)
+        return num;
+    int res = num % 9;
+    if(res == 0)
+        return 9;
+    return res;
+    
+}
+
+求众数
+int majorityElement(int* nums, int numsSize)
+{
+    int tmp = nums[0];  //为第一个数
+    int i = 0;
+    int count = 0;  //模拟栈当前元素个数
+    while(i<numsSize)
+    {
+        if(tmp == nums[i])  //遇到相同元素 栈元素个数+1
+            count++;
+        else if(count == 0) //栈个数为空
+        {
+            tmp = nums[i];
+            count++;
+        }
+        else    //不同元素 抵消一个
+            count--;
+        i++;
+    }
+    
+    
+    return tmp;
+}
+
+删除最外层括号(摩尔投票算法)
+char* removeOuterParentheses(char* S)
+{
+    int Length = strlen(S);
+
+    char* res = (char* )malloc(Length);
+    if(res == NULL)
+        return 0;
+    int count = 0;  //模拟栈当前元素个数
+    int i = 0, j = 0;
+    while(*( S + i ) != '\0')
+    {
+        //()()(())()()()
+        if( S[i] == '(')
+        {
+            if(count >= 1)  //里面有一个'('   //再有一个'('不需要删除
+            {
+                res[j] = S[i];
+                j++;
+            }
+            count++;    //'('入栈 计数++
+        }
+        else 
+        {
+            if(count > 1)   //里面有两个'(' 不需要删除')'
+            {
+                res[j] = S[i];
+                j++;
+            }   
+            count--;    //匹配到 计数--
+        }
+        i++;
+    }
+    res[j] = '\0';
+    return res;
+}
+
+
+/**
+ * Note: The returned array must be malloced, assume caller calls free().
+ */
+int* majorityElement(int* nums, int numsSize, int* returnSize)
+{
+    if(numsSize < 1)
+        return NULL;
+    int *res = (int *)malloc(2*4);
+    int tmp_1 = nums[0];
+    int tmp_2 = nums[0];
+    int count_1 = 0;
+    int count_2 = 0;
+    
+    int i = 0;
+    while(i < numsSize)
+    {
+        if(tmp_1 == nums[i])
+            count_1++;
+        else if(tmp_2 == nums[i])
+            count_2++;
+        else if(count_1 == 0)
+        {
+            tmp_1 = nums[i];
+            count_1++;
+        }
+        else if(count_2 == 0)
+        {
+            tmp_2 = nums[i];
+            count_2++;
+        }
+        else
+        {
+            count_1--;
+            count_2--;
+        }
+        i++;
+    }
+    i = 0;
+    count_1 = 0;
+    count_2 = 0;
+    while(i < numsSize)
+    {
+        if(tmp_1 == nums[i])
+            count_1++;
+
+        else if(tmp_2 == nums[i])
+            count_2++;  
+        i++;
+    }
+   
+    i = 0;
+    if(count_1 > (numsSize/3))
+        res[i++] = tmp_1;
+    if(count_2 > (numsSize/3))
+        res[i++] = tmp_2;
+    *returnSize = i;
+    
+    return res;
+}
+排列硬币
+int arrangeCoins(int n)
+{
+    int i = 1;
+
+    while (n >= i){
+        n -= i;
+        i++;
+    }
+
+    return i - 1;
+}
+
+删除排序数组中的重复项
+int removeDuplicates(int* nums, int numsSize){
+
+    if(numsSize <= 1)
+        return numsSize;
+    int i = 1; //控制数组循环
+    int j = 0; //控制当前元素
+
+    while(i < numsSize)    
+    {
+        if(nums[j] != nums[i])
+            nums[++j] = nums[i];
+        i++;
+    }
+    return j + 1;
+    
+}
+链表有环
+bool hasCycle(struct ListNode *head) {
+    struct ListNode *fast = head;
+    struct ListNode *slow = head;
+
+    //本身是空的 只有一个元素
+    while(fast && fast->next)
+    {
+        slow = slow->next;
+        fast = fast->next->next;
+        if(slow == fast)
+            return true;
+    }
+    return false;
+    
+}
+
+层序遍历
+#define MaxSize 1024
+int maxDepth(struct TreeNode* root){
+    struct TreeNode *List[MaxSize];
+    int front, back;
+    front = back = 0;
+    if(root)
+        List[back++%MaxSize] = root;
+    int count = 0; //队列长度 
+    int cnt = 0;
+    
+    struct TreeNode *cur;
+    while(front < back)
+    {
+        count = back - front ;
+        cnt++;
+        while(count--)
+        {
+            cur = List[front++%MaxSize];
+            if(cur->left)
+                List[back++%MaxSize] = cur->left;   //没有%超过数组长度前面浪费
+            if(cur->right)
+                List[back++%MaxSize] = cur->right;
+        }
+    }
+    return cnt;
+}
+
+
