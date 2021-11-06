@@ -1,5 +1,5 @@
 
-DEBUG = n
+DEBUG = y
 
 ifeq ($(DEBUG),y)
     EXTRA_CFLAGS += -DDEBUG
