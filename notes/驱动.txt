@@ -2090,8 +2090,112 @@ USB
 				include/linux/pm.h
 				drivers/spi/spi-pl022.c
 				Documentation/power/runtime_pm.rst
-20.1章
-
+芯片移植
+	内核节拍
+		2.X版本从芯片内部找一个定时器, 每个时钟节拍到来时, 调用timer_tick()函数
+			arch/arm/mach-s3c2410/time.c
+		当前版本定时器结构体
+			struct clock_event_device = {
+				设置定时器的模式以及恢复, 关闭等功能, 目前一般采用OONESHOT(一次产生一次中断)模式,
+				.set_mode
+				参数:内核传递给定时器的一个差值 
+				含义:下一次节拍中断产生定时器中的值相对于当前计数器的差值
+					设置定时器值为"当前值 + delta"
+				.set_next_evnet
+			}
+			struc clocksource = {
+				读取出开机到当前时刻定时器计数器已经走过的值, 提供系统准确的参考时间
+				.read
+			}
+			中断
+				中断到来时, 调用clock_event_device中的event_handler函数
+				event_handler函数, 内核根据配置和运行情况自行设置
+			运行
+				定时器频率1MHZ(每加1 = 1us), 应用程序睡眠100us, 内核传递给set_next_event参数100
+				100us后中断产生, 中断调用
+	中断控制器
+		local_irq_disable, local_irq_enable, 实现与中断控制器无关, 直接让CPU不响应中断
+			arch/arm/include/asm/irqflags.h
+		描述
+			struct irq_chip = {
+				清除中断, 中断屏蔽, 取消屏蔽, 配置触发方式
+				ack, mask, unmask, set_type
+			}
+			IRQ Domain
+				描述一个终端控制器所管理的中断源
+				irq_doamin_add_legacy()
+					控制器直接指定中断源和Linux中映射关系,hwirq
+				irq_doamin_add_linear()
+					  中断源与irq_desc之间建立线性映射, IRQ Domain维护一个hwirq
+					与逻辑IRQ之间关系
+				irq_doamin_add_tree()
+					hwirq和逻辑IRQ映射关系用radix树描述, 通过查找的方法寻找hwirq和IRQ关系
+		参考
+			drivers/pinctrl/sirf/pinctrl-sirf.c
+			drivers/irqchip/irq-gic.c
+			
+	SMP多核和CPU热插拔
+		通常由CPU0唤醒其它cpu工作
+		唤醒操作
+			struct smp_operations = {
+				探测cpu核个数, 并设置可见
+					smp_init_cpus
+				设置cpu启动地址	
+					smp_prepare_cpus
+				cpu唤醒工作
+					smp_boot_secondary
+						write_pen_release(cpu_logical_map(唤醒的CPU号))
+						arch_send_wakeup_ipi_mask()唤醒cpu发IPI中断
+						唤醒CPU使用smp_prepare_cpus
+				热插拔
+					cpu_die
+			};
+			
+		参考
+			arch/arm/mach-vexpress/v2m.c
+			arch/arm/mach-vexpress/platsmp.c
+			arch/arm/mach-vexpress/hotplug.c
+			
+	early_printk
+		bootargs中使能earlyprintk
+		参考
+			arch/arm/include/debug/sirf.S
+			arch/arm/include/debug/pl01x.S
+			arch/arm/Kconfig.debug
+			
+	pinctrl驱动
+		pin控制器寄存器, 配置引脚特性
+		描述
+			struct pinctrl_des = {
+				引脚组需要填充一下函数
+					pinctrl_ops
+						get_groups_count/name/pins
+				回调函数
+					confops
+				引脚复用
+					pinmux_ops
+			};
+		与GPIO交互
+			映射关系
+				gpio range 32 ... 47 pin  range 32 ... 47				
+				gpio range 48 ... 55 pin  range 64 ... 71				
+				struct pinctrl_gpio_range = {
+					base = 32/48,
+					.pin_base = 32/64,
+				};
+		注册
+			pinctrl_register()
+			pinctrl_add_gpio_range()
+		API
+			pin_config_set
+		GPIO申请
+			gpio_request --> pinctrl_request_gpio, 查找引脚是否被复用占用
+	
+	时钟驱动
+		struct clk = {
+			
+		};
+		20.8
 UBOOT
 	启动kernel(bootz bootm booti)
 		bootX <kernel addr> <rootdisk addr>:<size> <fdt addr>
