@@ -1,765 +1,674 @@
-VFS
-    不同文件系统，结构不同，VFS屏蔽不同文件系统的差异
-    
-arch ：包含和硬件体系结构相关的代码，每种平台占一个相应的目录，如 i386、 arm、
-    arm64、 powerpc、 mips 等。 Linux 内核目前已经支持 30 种左右的体系结构。在 arch
-    目录下，存放的是各个平台以及各个平台的芯片对 Linux 内核进程调度、内存管理、
-    中断等的支持，以及每个具体的 SoC 和电路板的板级支持代码。
-block：块设备驱动程序 I/O 调度。
-crypto：常用加密和散列算法（如 AES、 SHA 等），还有一些压缩和 CRC 校验算法。
-documentation：内核各部分的通用解释和注释。
-drivers ：设备驱动程序，每个不同的驱动占用一个子目录，如 char、 block、 net、mtd、 i2c 等。
-fs：所支持的各种文件系统，如 EXT、 FAT、 NTFS、 JFFS2 等。
-include：头文件，与系统相关的头文件放置在 include/linux 子目录下。
-init：内核初始化代码。著名的 start_kernel() 就位于 init/main.c 文件中。
-ipc：进程间通信的代码。
-kernel ：内核最核心的部分，包括进程调度、定时器等，而和平台相关的一部分代码放在 arch/*/kernel 目录下。
-lib：库文件代码。
-mm：内存管理代码，和平台相关的一部分代码放在 arch/*/mm 目录下。
-net：网络相关代码，实现各种常见的网络协议。
-scripts：用于配置内核的脚本文件。
-security：主要是一个 SELinux 的模块。
-sound： ALSA、 OSS 音频设备的驱动核心代码和常用设备驱动。
-usr：实现用于打包和压缩的 cpio 等。
-include：内核 API 级别头文件。
--------------------------------------------------------
+网络
+	结点:网络设备 计算机 交换机
+	计算机接交换机组成网络
+	网线:链路
+	距离小于100m
+	
+互联网(internet)
+	网络与网络通过 路由器 相连接
+	多个交换机接路由器组成互联网
+	
+因特网(Internet)
+	全球最大的互联网
+	
+互联网服务提供商(ISP)
+	1、向公众提供网络服务:电信、移动、联通...
+	
+	2、ISP可以从互联网管理机构申请到很多IP地址,然后一些机构和个人从某个ISP获取IP地址的使用权,
+	并可通过该ISP连接到互联网。
+	
+	3、三层ISP结构分为主干ISP,地区ISP,本地ISP。
+	本地ISP给用户提供最直接的服务,本地ISP可以连接到地区ISP,也可以连接到主干ISP。
+	从原理上讲。只要每一个本地ISP都安装了路由器连接到某个地区ISP,而每一个地区ISP也有路由器连接到主干ISP,
+	那么在这些相互连接的ISP的共同作用下,就可以完成互联网中的所有的分组转发任务。
 
-makefile 条件编译由.config决定。.config是否被注释由make menuconfig决定 make menuconfig中是否有选项由Kconfig决定
-    通常修改好选项.config 保存好更改名字以便下次使用（当你执行make distclean时系统会把.config文件删除）
-    以后我们再配置内核时就不需要再去arch/arm/configs下考取相应的文件了，省去了重新配置的麻烦，直接将保存的.config文件复制为.config即可.
-    
-    make savedefconfig命令根据当前图像化的配置生成defconfig
-        根据arch和defconfig名(xxx_defconfig)找config文件
+因特网组成(边缘部分 核心部分)
+	主机间的通信方式(边缘部分)
+		(1)客户服务器方式(C/S)
+			客户端请求服务器,服务器向客户提供服务
+		(2)对等方式(P2P)
+			计算机既可以充当客户又可以充当服务器:客户A从服务器下载250M,客户B可以从客户A(多个客户端)中下载250M。
+	数据交换方式(核心部分)
+		(1)电路交换:适合数据量大的实时性传输,核心路由器之间可以使用电路交换
+			需要通信时候建立连接,结束后断开。临时搭建专线
+				建立连接:申请占用通信资源
+				通话:占用通信资源
+				释放连接:释放通信资源
+		(2)报文交换:报文一般比分组长的多,交换时延长
+			报文不作分组,类似分组交换
+		(3)分组交换:路由器存储转发功能(优点:高效 灵活 迅速 可靠)(缺点:时延 开销)
+			完整的文档称报文
+			发送端
+				将报文分段分组,每一段首部写信息,将分组选择路径发放出去
+			接收端
+				报文首部信息去掉,分组数据合并
 
-给内核增加功能，并且通过make menuconfig控制，需要
-同一级Kconfig中添加
-    config abc
-        bool/tristate "选项名" //选中编译 后面没有字符串名称，则不会出现在选中软件列表中Y/N
-        prompt "提示信息" //作用同bool后跟选项名一致
-        select CDE //选中后自动被选中
-        depend on ARM || MIPS //其中一个被选中之后才可被选中
-        ---help---
-            帮助信息
-            
-    menu/menconfig
-        所有子菜单config继承父菜单的依赖关系menu/menuconfig
-        
-    comment "注释" //配置过程中注释
-    
-    menu "Boot options"
-        comment "注释" //配置过程中第一行注释
-        config abc
-        bool/tristate "选项名" //选中编译 后面没有字符串名称，则不会出现在选中软件列表中Y/N
-        select CDE //选中后自动被选中
-        depend on ARM || MIPS //其中一个被选中之后才可被选中s
-        help
-            帮助信息
-    endmenu
-    
-    menconfig MODULES //可选菜
-        config abc
-        bool/tristate "选项名" //选中编译 后面没有字符串名称，则不会出现在选中软件列表中Y/N
-        help
-            帮助信息
-    if MODULES
-        ...
-    endif
-    
-    choice //后面选项一次被选中, 只能是bool/tristate, 并且为同一类型Y/M/N
-        ...
-    endchoice
-    
-    
-同一目录的makefile中
-    可选编译obj-$(CONFIG_abc) += xxx.o (根据CONFIG_abc选项决定m/y)
-    编译进内核obj-y += xxx.o
-    obj-$(CONF iG_EXT2_FS) += ext2.o
-    ext2-y := balloc.o dir.o f ile.o fsync.o ialloc.o inode.o \
-                octl.o namei.o super.o symlink.o
-    
-新建文件夹放入
-    在上一级Kconfig中加入搜索完整目录(新建目录)
-        source "drivers/i2c/.../Kconfig"
-            /(内核根目录)
-            |
-            |---drivers
-                |
-                |---i2c
-                    |
-                    |---...
-                    
-    在上一级makefile中加上目录(新建目录)
-    必选进内核obj-y += .../
-    可选obj-$(CONFIG_abc) += .../
-    
-Warning: 'make modules_install' requires /sbin/depmod. Please install it.
-    apt-get install kmod
-    
-make O= all -jn
-    O:将编译文件放入指定目录中
-    j:使用多核
-    
-make O= modules_install install
-INSTALL_MOD_STRIP=1 去除模块的多余信息
-INSTALL_MOD_PATH    模块安装路径
-INSTALL_PATH        内核安装路径 
+局域网 自己购买设备 带宽固定 距离100m
+广域网 花钱买服务 花钱买带宽
 
-make scripts
-    scripts目录中辅助内核编译程序(架构根据当前编译环境), 单独编译模块需要这些程序
-    
-arm结构单独生成uImage
-    mkimage -A arch -O os -T type -C comp -a addr -e ep -n name -d data_file[:data_file...] image
-                -A ==> set architecture to 'arch'
-                -O ==> set operating system to 'os'
-                -T ==> set image type to 'type'
-                -C ==> set compression type 'comp'
-                -a ==> set load address to 'addr' (hex)
-                -e ==> set entry point to 'ep' (hex)
-                -n ==> set image name to 'name'
-                -d ==> use image data from 'datafile'
-                -x ==> set XIP (execute in place) 
+计算机网络的性能
+	1byte(B) = 8bit(比特 位)
+	速率(字节byte B)接在计算机网络上的主机在数字信道上传送数据位数的速率,也称为比特率B/s,KB/s,MB/s,GB/s,下载时候速度
+	带宽(位bit):数据通信领域中,数字信道所传送的最高数据率b/s,kb/s,Mb/s,Gb/s
+	吞吐量:单位时间内通过某个网络(所有信道)的数据量b/s,Mb/s
+	时延
+		发送时延(准备发送 到 开始发送) = 数据块长度(bit) / 信道带宽 (bit/s)
+		传播时延(在链路上传播时间) = 信道长度(m) / 信号在信道上的传播速率(m/s)
+		处理时延(数据在结点A中处理选择路径传送结点B) = 网络结点存储转发处理时间(数据在结点A中选择路径到结点B中)
+		排队时延 = 数据在结点A中排队处理
+	时延带宽积 = 传播时延 * 带宽
+	往返时间(RTT):从发送方发送数据开始,到发送方收到接收方确认
+	利用率
+		信道利用率 = 有数据通过时间 / (有+无)数据通过时间
+		网络利用率:信道利用率加权平均值
+		D = D0 / (1 - U) D表示网络当前时延 D0表示表示网络空闲时的时延 U表示信道利用率
 
-内核中单独编译某个模块
-    make CONFIG_IXGBE=m -C ../../build(头文件位置) M=${PWD} drivers/net/ethernet/intel/ixgbe/ixgbe.ko modules
-    cd drivers/net/ethernet/intel/ixgbe && make CONFIG_IXGBE=m -C ../../build(头文件位置) M=${PWD} modules
-        已经编译好的头文件位置:已经有编译信息(某些编译进内核的文件) 可以通过
-        未编译内核源文件位置:可能需要某些编译进内核的文件没有编译 导致不通过。先编译一次
-        M：单独编译的位置
-        
-initrd解压缩
-    解压
-        gunzip initrd.img.gz
-        cpio -div < ../initrd.img
-    压缩
-        find . | cpio -H newc -o | gzip > ../initrd.img 
-        
-    新型解压后只有二进制文件
-        查看偏移量(从哪里开始lz4压缩)
-            如   3492864       0x354C00        LZ4 compressed data, legacy
-            binwalk initrd
-            dd if=initrd.img bs=3492864 skip=1 | lz4cat | cpio -id --no-absolute-filenames
-        
-        
-volatile
-    编译器不要优化此变量, 此变量多个程序共用
-    优化后,同一程序中变量没变化可能放进寄存器中程序从寄存器中获取,提高读取速度,别的程序进行修改(内存),但寄存器中没修改
-    
-零长数组
-    可以访问后面内存地址, 且不占用原本内存
-    struct test {
-        int i;
-        char b[0];
-    };
-#define min(x,y) ({ \       //({}) 表示一个复合语句表达式 {} 表示里面是复合语句 加上()变成表达式 
-    const typeof(x) _x = (x); \
-    const typeof(y) _y = (y); \
-    (void) (&_x == &_y); \
-    _x < _y ? _x : _y; })
+OSI七层模型
+	--------------------------开发人员--------------------------
+	应用层：能够产生网络流量能够和用户交互的应用程序
+	表示层：加密 压缩减少传输的带宽
+	会话层：服务器和客户端建立的会话(查木马 盗窃信息控制机器)netstat /?
+	--------------------------网络工程师------------------------
+	传输层：可靠传输(建立会话) 不可靠传输 流量控制
+	网络层：IP地址选址 选择最佳路径(IP地址决定终点位置)
+	数据链路层：输入如何封装 添加物理层地址MAC(MAC地址决定下一跳地址)
+	------------------------------------------------------------
+	物理层：电压 接口标准 
+	------------------------------------------------------------
+四层
+	应用层5-7
+	运输层4
+	网络层3
+	网络接口层1-2
 
-结构体type的成员member的地址ptr, 求解结构体type的起始地址
-    type起始地址 = ptr - size
-    
-#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
-    (TYPE *)0 有一个类型为TYPE的指针其值为0
-    &((TYPE *)0)->MEMBER MEMBER偏移地址, 由于0开始偏移, 偏移地址即为size
+------------------------------------------------------------------------------
+物理层
+	解决如何在连接各种计算机的传输媒体上传输数据比特流而不是指具体的传输媒体。
+	物理层的主要任务描述为：确定与传输美媒体的接口的一些特性
+	机械特性：例接口形状，大小，引线数目
+	电气特性：规定电压范围
+	功能特性：规定5V表示1
+	过程特性：规定建立连接时各个相关部件的工作步骤
+	
+	数据通信模型
+		PC(传输数字比特流)-->调制解调器(转化为模拟信号)-->共用电话网-->调制解调器(转化为数字比特流)-->PC
+		调制解调器：将信号进行转换，将不同介质的信号(光纤、ADSL、有线)进行转变
+		
+	通信的目的是传送消息
+		1、数据：运送消息的实体
+		2、信号：数据的电气或电磁的表现
+		3、模拟信号：消息的参数的取值是连续的
+		4、数字信号：消息的参数的取值是离散的
+		5、码元：使用时间域的波形表示数字信号时，则代表不同离散数值的基本波形就成为码元
+		6、在数字通信中常常用时间间隔相同的符号来表示一个二进制数，这样的时间间隔内的信号称为二进制码元。
+		间隔称为码元长度。1码元可以携带nbit的信息量
+	
+	信道概念
+	信道一般表示向一个方向传送数据的媒体，平常所说的通信线路往往包含一条发送信息的信道和一条接收信息的信道
+		1、单向通信(单工通信)：只能有一个方向的交互
+		2、双向交替通信(半双工)：通信的双方都可以发送信息，但不能双方同时发送/接收
+		3、双向同时通信(全双工)：通信的双方可以同时发送和接收信息
+	
+	基带信号：来自信源的信号。像计算机输出的代表各种文字或图像文件的数据信号都属于基带信号。
+	基带信号就是发出的直接表达了要传输的信息的信号，说话的声波就是基带信号
+	带通信号：把基带信号经过载波调制后，把信号的频率范围搬移到较高的频段
+	以便在信道中传输(即仅在一段频率范围内能够通过信道)
+	
+	调制方法
+		1、调幅(AM)：载波的振幅随数字信号而变化
+		2、调频(FM)：载波的频率随基带数字信号而变化
+		3、调相(PM)：载波的初始相位随基带数字信号而变化
+	
+	编码(归零：无论信号是1/0完结后都归零)
+		1、单极性不归零：只使用一个电压值，高电平1，没电压0
+		2、双极性不归零码：用正电平和负电平分别表示二进制1和0
+		3、双极性归零码：正负零三个电平，信号本身携带同步信息
+		4、曼彻斯特编码：信号低--高为0，信号高--低为1。一个时钟周期只可表示1bit，必须经过两次采用得到1bit
+		5、差分曼彻斯特编码：bit中间有信号跳变，bit与bit之间有信号跳变表示下一bit为0
+							bit中间有信号跳变，bit与bit直接没信号跳变表示下一bit为1
+	处理失真
+		1、奈氏准则：理想低通信道的最高码元传输速率 = 2WBaud(W是理想低通信道的带宽HZ，Baud是波特，是码元传输速率的单位)
+		2、香农公式：信道的极限信息传输速率C = Wlog2(1+S/N) b/s (W为信道的带宽 S为信道内所传信号的平均功率 N为信道内部的高斯噪声功率)
+		
+	导向传输媒体
+		1、电磁波沿固体媒体传播
+		2、双绞线:屏蔽双绞线STP,无屏蔽双绞线UTP
+		3、同轴电缆：50Ω用于数字传输，多用于基带传输。75Ω用于模拟传输，宽带同轴电缆
+		4、光纤
+		
+	非导向传输媒体
+		短波通信主要靠电离层的反射，但短波信道的通信质量较差。
+		微波在空间主要是直线传播：地面微波接力通信。卫星通信。
+		
+	信道复用
+		1、频分复用：用户在分配到一定的频带后，在通信过程中自始至终都占用这个频带。所有用户在同样的时间占用不同的带宽(频率)资源。
+		2、时分复用：将时间划分为一段段等长的时分复用帧。每一个用户在每一个帧中占固定序号的时隙，每一个用户占用的时隙周期性出现。所有用户在不同的数据占用同样的频带宽度。
+		3、码分复用：将一个bit时间划分为m个短的间隔称为码片。每个站都有一个码片，用码片解密得1/-1能接收信号。其余码片解密得0。
+	
+	带宽接入信号
+		1、xDSL：用数字技术对现有的模拟电话用户线进行上网。把0-4kHz，低端频谱留给传统电话使用，而把原来没有被利用的高端频谱留给用户上网使用。
+		2、光纤同轴混合网：通过有线电视网基础开发的一种居民宽带入网。
+		3、FTTx：光纤到户
 
-#define container_of(ptr, type, member) ({			\
-	const typeof(((type *)0)->member) *__mptr = (ptr);	\
-	(type *)((char *)__mptr - offsetof(type, member));	\
-})
-    强转的目的是考虑指针的加减的实质是指针在内存的偏移, 偏移量为指针类型所占字节的个数
-    char * 指向char类型数据, char类型数据占1字节, 指针加减按1字节偏移
-    int  * 指向int 类型数据, int 类型数据占4字节, 指针加减按4字节偏移
-    
-#和##
-    #替换为字符串
-    ##拼接作用
-    宏参数使用宏时, #和##不会被解析
-    加入多一个宏,在第二个宏展开
-    
-    #define A			(2)
-    #define CONS(a,b)	int(a##e##b)
-        CONS(A, A) //编译器错误
+------------------------------------------------------------------------------
+数据链路层
+	使用点对点信道(PPP协议(广域网))：一对一的点对点通信方式。
+	使用广播信道(CSMA/CD协议(局域网))：一对多的广播通信。
+	链路：一条点到点的物理线路段。
+	数据链路：除物理线路外，还需有通信协议来控制这些数据的传输，把协议的硬件和软件加到链路上，就构成了数据链路
+			常用的方法使用适配器(网卡)来实现这些协议的硬件和软件，一般的适配器包括数据链路层和物理层
+	帧(数据链路传输)：在前后加入数据组成帧
+	不使用序号和确认机制：出现错的概率不大，就算保证了数据链路层可靠也不能保证网络层传输可靠，FCS字段可保证无差错接收
+	端口与MAC地址绑定可以实现第二层网络安全，有效的规避非法用户的接入
+		
+	PPP协议：链路层协议采用点对点信道
+		1、封装成帧
+		2、透明传输
+		3、差错控制
+		4、在同一条物理链路上进行点对点的数据传输，对数据链路层的帧不进行纠错，不需要序号，不需要流量控制。
+		5、多种网络层协议：在同一条物理链路上同时支持多种网络层协议(如IP和IPX等)的运行。
+		6、多种链路类型：PPP必须能够在多种类型的链路上运行，例如串行或并行链路，多种传输介质。
+		7、检测连接状态：自动检测链路是否处于正常工作状态。
+		8、IP分配，用户验证
+	
+	数据链路层的三个基本问题
+		1、封装成帧：在一段数据的前后分别添加首部和尾部，构成一个帧
+					帧首部(SOH) + 帧的数据部分(IP数据报 MTU(最大传输单元)(最大不超过1500byte))+ 帧尾部(EOT)
+					帧没发送完，判别是否发送完整
+		2、透明传输：若传输的数据是ASCII码中有头尾标志时会判别为完整的帧，但实际未完整
+					用字节填充解决问题，在冲突的数据前加上转义字符
+						信息字段出现7E转变成0x7D，0x5E，出现0x7D转变为0x7D，0x5D
+						出现ASCII码的控制字符(数值小于0x20)前面加入0x7D，同时将该字符的编码加以改变
+					使用SONET/SDH链路时，使用同步传输(用比特流)时候采用零比特填充，5个1后面填充0
+		3、差错控制：传输过程中可能产生比特差错1-->0 0-->1，在一段时间内，传输错误的bit所占传输bit总数的比率称为误码率BER。作除法(异或)运算
+					CRC循环冗余检验：在发送端，先把数据分为组，假定每组K个bit。假设待传送的一组数据M = 101001(K = 6)。在M后面添加供差错检测用的n位冗余码一起发送
+					被除数M K位 除数P 在M后添加n个0 P比n多一位，得(K+n)位的数除以事先选定好的长度(n+1)的除数P
+					得出商Q而余数是R，余 数R比除数P少一位，即R是n位 R作为FCS，在M后面添加R。接收方得数据M除P得余数0传输无错误
+					帧检测序列FCS：CRC得到FCS一种方法，CRC只是检测错不纠错，错误就丢弃
+	
+	PPP协议组成
+		1、高级数据链路控制协议(HDLC)可以用于异步串行或同步串行介质
+		2、链路控制协议(LCP)使用LCP(链路控制协议)建立并维护数据链路连接，负责身份验证，通过后NCP可以用了
+		3、网络控制协议(NCP)允许在点到点连接上使用多种网络层协议
+	
+	PPP协议的帧(F + A + C + 协议 + IP数据报 + FCS + F)(IP数据报为网络层传输的数据，前面为帧头，后面为帧尾)
+		Byte------1-----------1-----------1-----------------------不超过1500byte---------2----------1------
+			|	F(7E)	|	A(FF)	|	C(03)	|	协议	|	信息部分(IP数据报)	|	FCS   |   F(7E)   |
+			-----帧-----------------------------------头--------------------------------帧---------尾------
+		协议(不同数据代表信息部分不同含义)
+		1、0x0021--信息部分是IP数据报 
+		2、0xC021--PPP链路控制数据
+		3、0x8021--网络控制数据
+		4、0xC023--安全性认证PAP
+		5、0xC025--LQR
+		6、0xC223--安全性认证CHAP
+	
+	以太网(局域网LAN)CSMA/CD协议(载波监听多点接入/碰撞检测)：链路层协议采用广播信道
+		1、多点接入：计算机以多点接入的方式连接在一根总线上
+		2、载波监听：每一个站在发送数据之前先检测一下总线上是否有其他计算机在发送数据，若有暂时不发送，以免发送碰撞
+		3、碰撞检测
+			争用期：发送数据帧最多经过2τ，通常去51.2微秒为争用期长度，对于10Mb/s以太网，在争用期内可发送512bit，即64字节
+			最短有效帧长：发生冲突，一定在发送的前64字节内，一检测冲突就立即中止发送，规定最短有效帧长为64字节，长度小于64字节的帧是冲突而异常中止的无效帧
+		4、碰撞处理：发生碰撞后，推迟一个随机时间在发送数据
+			确定基本退避时间，一般取2τ
+			定义参数K = Min[重传次数，10]
+			从整数集合[0,1,....,(2^K)-1]随机取出一个数，记为r。重传所需的时延就是r倍的基本退避时间
+			重传16次仍不成功即丢弃帧，并向高层报告
+	
+	信道利用率
+		帧长L(bit)数据发送速率C(b/s)，帧发送时间L/C = T0(s)
+		a = τ/T0 a越接近0，利用率越高
+		
+	MAC层的硬件地址(MAC地址/局域网地址)：它是一个用来确认网络设备位置的位址。MAC地址用于在网络中唯一标示一个网卡
+		MAC地址是出厂时候确定的唯一的，但是可以传输时候计算机用指定的MAC地址(同一局域网内有相同MAC地址会冲突)
+		MAC帧（最小64字节）
+		Byte--------6-------------6-----------2--------46-1500-------4-----
+			|	目的地址	|	源地址 	 |  类 型	|	数 据	|	FCS   |
+			---------------------------------------------------------------
+			发送广播的时候目的mac地址为全ffff-ffff-ffff
+		
+        以太网帧完整长度
+        前导码 7Byte(前导字符)+1Bytes(帧开始界定符) 发收方同步时钟和bit流
+        帧间隙 12Bytes(最小) 等待12Bytes时间在发送
+        前导码+帧间隙+MAC帧
         
-    #define A			(2)
-    #define CONS(a,b)	int(a##e##b)
-    #define _CONS(a, b) CONS(a,b)
-        _CONS(A, A)
-GNU C
-    最有可能执行的分支告诉编译器,减少汇编跳转
-        __builtin_expect(EXP, N) //EXP == N的概率很大
-        #define likely(x) __builtin_expect(!!(x), 1) //x很可能为真 !!确保返回布尔值      
-        #define unlikely(x) __builtin_expect(!!(x), 0) //x很可能为假
-        
-------------------------------------------------------------------------
-字符设备的init函数如你所说完成注册设备等工作
-基于总线的那些设备init函数只是向总线设备列表中添加了设备,把驱动注册总线上,当检测到设备名称相同时才会调用probe函数,
-    probe函数其实就是接着init函数的工作完成设备的注册
-
-/proc/modules
-    lsmod调用
-已加载模块的信息
-    /sys/modules
-模块间的依赖关系
-    /lib/modules/`uname -r`/modules.dep
-
-#define __init __attribute__((__section__{".init.text"}))
-加载模块
-    static int __init 函数名
-    {
-        
-    }
-    module_init(函数名);
-    加载内核模块
-        request_module(const char*fmt, ...)
-        request_module(module_name);
-    所有标识为__init函数如果直接编译进内核, 成为内核镜像一部分, 连接是放在.init.text这个区域内
-    所有的__init函数在区段.initcall.init中还保存一份函数指针, 在初始化时内核通过函数指针调用__init函数
-    /sys/module/下出现模块名命名的目录
-卸载模块
-    static int __exit 函数名
-    {
-        
-    }
-    module_exit(函数名);
-模块参数传递
-    module_parm(参数名, 参数类型, 参数读写权限);
-    module_parm_array(数组名, 数组类型, 数组长, 数组读写权限);
-    insmod 模块名 参数名=参数值, 不传递使用模块内定义的缺省值, 模块被内置就无法传递, bootloader可通过bootargs传递参数
-    参数类型
-        byte, short, ushort, int, uint, long, ulong, charp, bool, invbool
-
-导出符号
-    EXPORT_SYMBOL(函数名);
-    EXPORT_SYMBOL_GPL(函数名); //适用于GPL许可
-    导出模块, 其它文件可以使用该模块, 其它需要使用时, 先声明extern
-    加载/卸载模块时候, 主要先后顺序
-    /proc/kallsyms 中有导出符号信息, 记录符号以及符号所在的内存地址
-内核模块声明
-    MODULES_AUTHOR();
-    MODULES_DESCRIPTION();
-    MODULES_VERSION();
-    MODULES_DEVICE_TABLE(); //usb pcie等设备驱动, 以表明该驱动模块所支持的设备
-    MODULES_ALLAS();
-模块计数器
-    int try_module_get(struct module *module);
-        模块使用调用
-    void module_put(struct module *module);
-        模块卸载时调用, 设备在使用时, 管理设备的模块将不能被卸载
-
-struct file
-    系统中每个被打开的文件在内核空间有此结构体
-    void *private_data, 大多数指向设备驱动自定义用于描述设备的结构体
-struct inode
-    管理文件系统的最基本单位
-    获取主次设备号 /proc/devices文件或知系统中注册的设备
-        unsigned int iminor(struct inode *inode);
-        unsigned int imajor(struct inode *inode);
-        
-热/冷插拔(udev)
-    内核通过netlink套接字发送设备详细信息
-    udev通过侦听内核发出来的 uevent 来管理 /dev目录下的设备文件
-    udev 只为那些连接到 Linux 操作系统的设备产生设备文件。并且 udev 能通过定义一个 udev 规则(/etc/udev/udev.conf)来产生匹配设备属性的设备文件,
-    这些设备属性可以是内核设备名称、总线路径、厂商名称、型号、序列号或者磁盘大小等等。
-    
-sysfs系统
-    /sys/bus下有drivers和devices目录, devices是对/sys/devices目录中文件的符号链接
-    /sys/class包含许多对/sys/devices中的文件链接
-                                         sysfs
-                 bus                    devices              class
-        driver        devices            x/y设备      x所属类     y所属类
-    y驱动   x驱动  y设备   x设备                       x设备       y设备
-    
-    总线, 驱动, 设备(include/linux/device.h)
-        struct bus_type
-            match函数匹配device与driver, 匹配成功调用driver中的probe
-        struct device_driver
-            platform, pci, i2c, spi等
-        struct device
-        
-    kobject
-        kobject衍生所有总线, 设备和驱动, 一个kobject对应一个sysfs中的目录
-    attribute
-        总线, 设备, 驱动, 各个attribute直接落实为sysfs中的一个文件
-        attribute
-        {bus_attribute
-        driver_attribute
-        device_attribute}
-            show() store()分别用于读写(cat/echo)attribute对应sysfs文件
-        drivers/base/bus.c与/sys/bus/platform对应
-    
-/proc/sys/printk
-    4 4 1 7
-    1.优先级高于4才会被输出到控制台
-    2.默认级别,printk不加参数级别
-    3.可接收优先级,
-    4.控制台优先级级别
-    
-printk(KERN_INFO "----\n");
-KERN_EMERG  KERN_SOH "0"    /* system is unusable */
-KERN_ALERT  KERN_SOH "1"    /* action must be taken immediately */
-KERN_CRIT   KERN_SOH "2"    /* critical conditions */
-KERN_ERR    KERN_SOH "3"    /* error conditions */
-KERN_WARNING    KERN_SOH "4"    /* warning conditions */
-KERN_NOTICE KERN_SOH "5"    /* normal but significant condition */
-KERN_INFO   KERN_SOH "6"    /* informational */
-KERN_DEBUG  KERN_SOH "7"    /* debug-level messages */
-
-kzmalloc(带有清零标志)/kmalloc -- kree
-vmalloc -- vree 申请虚拟内存不一定连续
-readl,writel -- 往内存映射空间操作
-
-字符设备
-    用户空间 --> 系统调用 --> file_operations中 --> 设备
-    描述字符设备, 一个字符设备对应一个cdev
-        struct cdev {
-            struct kobject kobj;    //kobject结构体
-            struct module *owner;   //通常填THIS_MODULES
-            const struct file_operations *ops;  //文件操作
-            struct list_head list;
-            dev_t dev;              //设备号
-            unsigned int count;
-        }
-        从dev中获取主次设备号
-            MAJOR(dev) MINOR(dev)
-        通过主次设备号生成dev
-            MKDEV(int major, int minor)
-    
-    操作cdev结构体函数
-        struct cdev *cdev_alloc(void);
-        void   cdev_init(struct cdev *, struct file_operations *); //初始化, 建立与ops连接
-        void   cdev_put(struct cdev *p);
-        int    cdev_add(struct cdev *, dev_t, unsigned);    //注册    
-        void   cdev_del(struct cdev *);                     //注销设备
-        
-    使用cdev_add之前向系统申请设备号
-        已知起始设备的设备号申请
-            int register_chrdev_region(dev_t from, unsigned count, const char *name);
-        未知设备号申请
-            int alloc_chrdev_region(dev_t *dev, unsigned baseminor, unsigned count, const char *name);
-        注销
-            void unregister_chrdev_region(dev_t from, unsigned count);
-            
-    文件操作
-    struct file_operations
-        llseek:修改一个文件当前读写位置, 并将新位置返回, 出错返回负
-        read/write:读/写数据, 成功返回对应字节数,0(EOF end-of-file), read失败返回负值, write失败返回-EINVAL ,与用户空间read/fread/wirte/fwrite对应
-        unlock_ioctl:与用户空间ioctl/fcntl对应, 调用成功返回一个非负值
-            ioctl命令申请,防止冲突
-                     8      8      2   13/14
-                -------------------------------
-                |设备类型|序列号|方向|数据尺寸|
-                -------------------------------
-                (type, nr , size) //隐含方向
-                设备序列号ioctl-number.txt中有推荐 type
-                序列号 nr
-                数据尺寸 size
-        mmap:将设备内存映射到虚拟空间中, 若未实现用户使用mmap返回-ENODEV, 帧缓冲设备映射到用户空间后可快速存取
-        open/release:内核可不实现, 用户空间调用时, 打开操作永远成功, release为close
-            通常在open中将file中的私有数据赋值
-                file->private_data = 自定义字符结构体
-        poll:用于询问设备是否可被非阻塞立即读写, 询问条件未触发, 系统调用会引起阻塞
-        aio_r/w:对设备进行异步读写, 用户空间可使用SYS_io_/setup/submit/getevnets/destroy/等进行操作
-    
-        用户空间 <--> 内核空间
-            copy_from_user(void *to, const void __user *from, unsigned long n)
-            copy_to_user(void __user *to, const void *from, unsigned long n)
-            传入用户空间前检验数据合法性, 防止超出用户空间
-                access_ok()
-        
-    模板
-        struct xxx_dev_t {
-            struct cdev cdev;
-            ...;
-        }xxx_dev;
-        
-        模块加载
-            初始化
-            .owner = THIS_MODULES;
-            获取字符设备号
-            注册
-        模块卸载
-            注销设备号
-            注销设备
-
-并发控制
-    编译器处理器乱序
-        编译性乱序
-            提高访存指令进行乱序,减少逻辑上不必要访存,导致没有严格按照代码逻辑顺序执行
-            barrier() 屏障功能,阻挡编译器优化,按照代码逻辑顺序正常
-                #define barrier() __asm__ __volatile__("": : :"memory")
-        处理性乱序
-            CPU根据自己缓存特性将访存指令重新排序,连续地址的访问可能会先执行,
-            或允许访存非阻塞,即前一条指令缓存不命中,后面不依赖前面的指令,后面先执行
-                LDR r0, [r1];
-                STR r2, [r3];
-                LDR未命中,STR不依赖LDR,先执行STR
-            DMB 数据内存屏障 严格低
-                在DMB之后的显式内存访问执行前,保证所有在DMB之前的内存访问完成
-            DSB 数据同步屏障 严格中
-                等待所有在DSB指令之前所有显式访存,缓存,跳转预测和TLB维护操作全部完成
-            ISB 指令同步屏障 严格高
-                Flush流水线,保证ISB之前的指令执行完成
-        内核中屏障
-            mb(),rmb(),wmb(); 读写屏障
-            __iormb(),__iowmb();寄存器读写屏障
-            readl_relaxed(),readl(),writel_relaxed(),writel();relaxed没有屏障
-    中断屏蔽
-        CPU一般具备屏蔽中断和打开中断功能,而且进程调度等操作依赖中断,一般不推荐使用
-        local_irq_disable() //不保存中断信息直接禁止
-        local_irq_enable()  //结束后使能中断
-        local_irq_save()    //禁止中断外保存目前CPU中断信息
-        local_irq_restore() //恢复CPU中断信息,不使能
-        local_bh_disable()  //禁止中断底半部
-        local_bh_enable()   //使能中断底半部
-        中断上下半部
-            防止中断处理时间过长,故此分为上下部,上半部处理事件快速,剩余交由下半部处理
-            上半部
-                中断接收,不可被打断屏蔽中断,将数据传入内核,需要处理事件挂载在对应下半部队列中,继续等待新中断
-                若上半部等待时间过长,数据丢失
-            下半部 
-                执行期间可以响应所有的中断,处理中断事件
-                软中断,tasklet,工作队列等实现
-    原子操作
-        原子操作与CPU相关,ARM架构中为LDREX和STREX
-            LDREX 加载
-            STREX 存储
-                第一个寄存器是值值为1,存储不成功,没有并发存储,strex在第一个寄存器设置0,存储成功
-        整型变量
-            设置原子变量的值(定义并初始化)
-                //atomic_xxx()
-                atomic_set(stomic_t *v, int i); 
-                stomic_t v = ATOMIC_INIT(0);
-            操作
-                atomic_read(stomic_t *);
-                atomic_(add/sub)(int i, stomic_t *v);
-                atomic_(inc/dec)(stomic_t *v);
-            操作并测试 
-                atomic_(add/sub)_and_test(int i, stomic_t *v);
-                atomic_dec_and_test(stomic_t *v);
-            操作并返回新值
-                atomic_(add/dec)_return(int i, stomic_t *v);
-                atomic_(inc/dec)_return(istomic_t *v);
-        位
-            设置第nr位
-                set_bit(nr, void *addr);
-                clear_bit(nr, void *addr);
-                change_bit(nr, void *addr); //反置
-            测试
-                test_bit(nr, void *addr);
-            测试并操作
-                test_and_set_bit(nr, void *addr);
-                test_and_clear_bit(nr, void *addr);
-                test_and_chang_bit(nr, void *addr);
+        pps(包转发率)
+            64字节包
+                千兆口:1000Mbps/((64+20)*8) = 1.488Mpps = 1488000pps
                 
-        static atomic_t c = ATOMIC_INIT(1);
-        if(!(atomic_dec_and_test(v))){
-            atomic_inc(v);  //设备已经被一个打开
-            return -EBUSY;
-        }
-                
-    自旋锁
-        ARM借用原子操作和内存屏障指令实现,ldrex/strex,dmb/dsb,wfe/sev
-        获得自旋锁,禁止该核抢占调度,没有禁止另一个核抢占调度
-        得到锁的代码在执行临界区时,可能受到中断和底半部影响
-        定义初始化
-            spinlock lock;
-            spin_lock_init(lock);
-        获取锁
-            spin_lock(lock) //未获取到一直等待
-            spin_trylock(lock) //获取到返回true,否则返回false
-        释放
-            spin_unlock(lock)
-        锁+屏蔽中断
-            spin_lock_irq() = spin_lock + local_irq_disable
-            spin_unlock_irq() = spin_unlock + local_irq_enable
-            spin_lock_irqsave() = spin_lock + local_irq_save
-            spin_unlock_irqrestore() = spin_unlock + local_irq_restore
-            spin_lock_bh() = spin_lock + local_bh_disable
-            spin_unlock_bh() = spin_unlock + local_bh_enable
-        进程/中断访问同一片临界资源
-            进程上下文调用
-                spin_lock_irqsave() //该核上的中断不可进入
-                spin_unlock_irqrestore()
-                spin_lock_bh()
-                spin_unlock_bh()
-            中断上下文
-                spin_lock()
-                spin_unlock()
-        注意
-            临界资源少使用
-            可能导致死锁(递归使用一个自旋锁)
-            获得自旋锁后在阻塞,可能导致内核崩溃
-    读写自旋锁
-        允许多个读,只有一个写,读写互斥
-        定义初始化
-            rwlock_t
-            rwlock_init(rwlock_t *)
-        读写锁定(读取前先锁定)
-            read_lock(rwlock_t *)
-            read_unlock(rwlock_t *)
-            read_lock_irqsave(rwlock_t *, unsigned long)
-            read_unlock_irqrestore(rwlock_t *, unsigned long)
-            read_lock_irq(rwlock_t *)
-            read_unlock_irq(rwlock_t *)
-            read_lock_bh(rwlock_t *)
-            read_unlock_bh(rwlock_t *)
-            
-            write_lock(rwlock_t *)
-            write_unlock(rwlock_t *)
-            write_lock_irqsave(rwlock_t *, unsigned long)
-            write_unlock_irqrestore(rwlock_t *, unsigned long)
-            write_lock_irq(rwlock_t *)
-            write_unlock_irq(rwlock_t *)
-            write_lock_bh(rwlock_t *)
-            write_unlock_bh(rwlock_t *)
-    顺序锁
-        正在读时候,可以写,读需要多次读数据直到有效
-        互斥资源不能是指针,读者会丢失数据导致内核崩溃
-        定义初始化
-            seqlock_t 
-            seqlock_init(seqlock_t)
-            DEFINE_SEQLOCK()
-        读锁定
-            write_seqlock(seqlock_t *)
-            write_sequnlock(seqlock_t *)
-            write_seqlock_irqsave(seqlock_t *, unsigned long)
-            write_sequnlock_irqrestore(seqlock_t *, unsigned long)
-            write_seqlock_irq(seqlock_t *)
-            write_sequnlock_irq(seqlock_t *)
-            write_seqlock_bh(seqlock_t *)
-            write_sequnlock_bh(seqlock_t *)
-            
-            访问共享资源前调用该函数,返回顺序锁sl的当前顺序号
-                read_seqbegin(const seqlock_t *)
-                read_seqbegin_irqsave(seqlock_t, unsigned)
-            访问完成后需要检查
-                read_seqretry(const seqlock_t, unsigned)
-                read_seqbegin_irqsave(seqlock_t, unsigned, unsigned long)
-    RCU
-        写者之间同步开销大
-        写者拷贝副本修改,在合适时机进行回调
-        读
-            rcu_read_lock()
-            rcu_read_unlock()
-            rcu_read_lock_bh()
-            rcu_read_unlock_bh()
-        同步
-            阻塞写者,直到当前CPU上所有已经存在的读者完成读临界区,不等待后续读者
-                synchronize_rcu()   
-            挂接回调,不使写者阻塞,把函数func挂接到RCU回调函数链上,立即返回,挂接的函数在前面读者完成后执行
-                call_rcu(struct rcu_head *head, 
-                                void (*func)(struct rcu_head *rcu))
-            RCU指针操作
-                rcu_assign_pointer(p, v)    //RCU指针赋一个新值
-                rcu_dereference(p)           //读端获取一个RCU保护指针,一般需要read_lock()和read_unlock()直接调用
-                rcu_access_pointer(p)       //获取指针,只关心本身值
-        内核中专门使用RCU链表
-            tbd
-    信号量
-        内核倾向于使用mutex作为互斥,信号量用作于同步
-        A执行down等待信号量,B执行释放,A同步等待B,应该执行顺序1234
-        A:P 代码区3 代码区4
-        B:V 代码区1 代码区2
-        P/V操作
-            P: 判断sem>0 执行-1操作并执行,否则加入等待队列
-            V: 判断等待队列, 有则唤醒队列中等待进程, 否则sem+1
-        定义初始化
-            struct semaphore sem;
-            sema_init(struct semaphore *, init);
-        获取与释放
-            获取信号量,会导致睡眠不能在中断上下文使用
-                down(struct semaphore *)
-            能被信号打断,信号打断也会导致函数返回非0值,通常返回ERESTARTSYS
-                down_interruptible(struct semaphore *)
-            尝试获取信号量,可以返回0,否则返回非0,不会导致睡眠
-                down_trylock(struct semaphore *)
-            up(struct semaphore *)
-    互斥体
-        互斥体实现依赖锁,属于进程级,用于多个进程之间对资源的互斥,竞争失败引起进程上下文切换
-        当进程占用资源时间较长时,选用互斥体
-        定义初始化
-            struct mutex ;
-            mutex_init();
-        获取与释放
-            mutex_lock(struct mutex *)
-            mutex_lock_interruptible(struct mutex *)
-            mutex_trylock(struct mutex *)
-            mutex_unlock(struct mutex *)
-    完成量
-        定义初始化
-            struct completion
-            init_completion(struct completion *)    //完成量为0表示没有完成的状态
-            reinit_completion(struct completion *)
-        获取与释放
-            wait_for_completion(struct completion *)
-            complete(struct completion *)
-            complete_all(struct completion *)
+	
+	网桥扩展以太网
+	
+	交换机
+		交换机工作于OSI参考模型的第二层，交换机内部的CPU会在每个端口成功连接时，通过将MAC地址和端口对应，形成一张MAC表。
+		在今后的通讯中，发往该MAC地址的数据包将仅送往其对应的端口，而不是所有的端口。
+		生成树算法防止形成环，广播时候不会不停转发
+		
+	
+	VLAN（虚拟局域网）
+		交换机划分VLAN：虽然在同一交换机上，但划分不同广播域，不同广播域之间资源不能互相访问是互相隔离的
+		路由器划分VLAN：在同一路由器物理端口上能够连接2个或以上的网段
+		三层交换机的内网限制功能更加强大，路由器上划分VLAN更方便。如果不同网段之间的数据交换比较多，需要用三层交换机划分；否则的话，直接用路由器划分VLAN就可以满足。
+			三层交换机就是具有部分路由器功能的交换机，工作在OSI参考模型的第三层。三层交换机的最重要目的是加快大型局域网内部的数据交换，所具有的路由功能也是为这目的服务的，能够做到一次路由，多次转发。
+		同一个交换机上都是一个VLAN不需要配置干道链路
+		跨交换机VLAN：VLAN1分别在两个交换机上如何通信。
+			交换机两个端口
+				访问端口：只能承载某一个VLAN的流量
+				中继端口：同时承载多个VLAN的流量，数据进入中继端口添加标记，离开端口去掉标记
+			将交换机中继端口配置成干道链路，可以节省网线
+				交换机3 VLAN1（3）和VLAN2（3） 
+				交换机2 VLAN1（2）和VLAN2（2）
+				VLAN1（3）传输数据给VLAN1（2），交换机3通过干道链路传输给交换机2
 
-等待队列
-        定义初始化
-            wait_queue_head_t
-            int_waitqueue_head(wait_queue_head_t *)
-            DECLARE_WAIT_QUEUE_HEAD(name)
-        定义名为name的等待元素
-            DECLARE_WAITQUEUE(name, tsk)
-                current全局指针,指向指向当前进程的task_struct,表示当前进程
-                    tsk : current
-        添加/移除
-            将元素wait添加/移除
-            add_wait_queue(wait_queue_head_t *, wait_queue_t *)
-            remove_wait_queue(wait_queue_head_t *, wait_queue_t *)
-        等待事件
-            第二个参数condition必须满足,否则继续阻塞
-            超过jiffy为单位的timeout无论condition是否满足均返回
-                wait_event(wait_queue_head_t *, condition)
-                wait_event_interruptible(wait_queue_head_t *, condition)
-                wait_event_timeout(wait_queue_head_t *, condition, timeout)
-                wait_event_interuptible_timeout(wait_queue_head_t *, condition, timeout)
-        唤醒等待队列
-            wake_up(wait_queue_head_t *)    //可以唤醒TASK_UNINTERRUPTIBLE和TASK_INTERRUPTIBLE(浅睡眠信号可唤醒)
-            wake_up_interruptible(wait_queue_head_t *)  //只可唤醒TASK_INTERRUPTIBLE
-            sleep_on(wait_queue_head_t *)
-            interruptible_sleep_on(wait_queue_head_t *)
-        调度
-            __set_current_state(...)   //设置进程睡眠状态
-            schedule()  //调度其它进程
+------------------------------------------------------------------------------
+网络层			
+	虚电路服务：分组都沿着逻辑连接（同一条虚电路）传送，虚电路断了，其余分组传输不了
+	数据报服务：分组写好地址，路径由路由器选择。不提供纠错，分组可能丢失，出错，重复
+	
+	中间设备
+		物理层：转发器（信号放大）
+		数据链路层：网桥或桥接器或交换机
+		网络层：路由器
+		网络层以上：网关
+		现在所说的网关是路由器接口的地址
+	
+	IP协议
+		IP协议(路由协议)
+		地址解析协议ARP
+		逆地址解析协议RARP
+		网际控制报文协议ICMP
+		网际组管理协议IGMP
+		4个协议关系
+		-------------------------
+		|			ICMP IGMP	|
+		|		IPV4			|
+		|	ARP					|
+		-------------------------
+	
+	网络地址
+		主机全0和全1的都保留不用(最大主机数-2)
+													网络起始		子网掩码		最大网络数	最大主机数	不外派
+		A类：8位网络地址 24位主机ID		最高位0  	1-126			255.0.0.0 		2^7-2		2^24-2		0和127(最大网络数-2)可用：1.0.0.1~126.255.255.254
+		B类：16位网络地址 16位主机ID	最高位10	128-191	 		255.255.0.0		2^14-1		2^16-2		128.0.0.0(最大网络数-1)可用：128.0.0.1~191.255.255.254
+		C类：24位网络地址 8位主机ID		最高位110	192-223 		255.255.255.0	2^21-1		2^8-2		192.0.0.0(最大网络数-1)可用：192.0.0.1-223.255.255.254
+		D类：多播/组播地址				最高位1110  224-239							
+		E类：研究
+		特殊地址
+			127.x.x.x	本地环回地址，一般用于测试使用。例如：ping 127.0.0.1 来测试本机TCP/IP是否正常。
+			169.254.x.x 微软用户获取不到IP时自动分配的IP地址
+			保留地址(作为局域网使用)
+			A类地址：10.0.0.0～10.255.255.255
+			B类地址：172.16.0.0 ～172.31.255.255
+			C类地址：192.168.0.0～192.168.255.255
+	
+	子网掩码
+		网络地址与子网掩码作与运行，相同在同一个网段，不同网段在路由器中转发数据报
+		IP地址 & 子网掩码 = 子网地址
+		子网地址 | ~(子网掩码) = 广播地址
+		
+	子网划分
+		等分子网
+			划分两个子网-->主机少一位-->网络多一位-->0位A子网 1为B子网(等分2个子网) 255.255.255.128
+				A子网的网络地址：192.168.0.0/25，可用地址（192.168.0.1~192.168.0.126），广播地址：192.168.0.127。
+				B子网的网络地址：192.168.0.128/25，可用地址（192.168.0.129~192.168.0.254），广播地址：192.168.0.255。
+			划分四个子网-->主机少两位-->网络多两位-->00A网 01B网 10C网 11D网 2^2 = 4 255.255.255.192
+				A子网：192.168.0.0/26，可用(192.168.0.1~192.168.0.62)，广播192.168.0.63
+				B子网：192.168.0.64/26，可用(192.168.0.65~192.168.0.126)，广播192.168.0.127
+				C子网：192.168.0.128/26，可用(192.168.0.129~192.168.0.190)，广播192.168.0.191
+				D子网：192.168.0.192/26，可用(192.168.0.193~192.168.0.254)，广播192.168.0.255
+				主机位数6位 2^6 = 64  192.168.0.0 ~ 192.168.0.64 ~ 192.168.0.128 ~ 192.168.0.192 ~ 192.168.0.255
+				最大主机位数2^6-2 = 62
+				
+		变长子网划分
+			30台为A网 	(2^n)-2 >= 30 n=5(主机位数最少) 
+						8-5 = 3(网络号最多借用位数) 
+						掩码：255.255.255.224(111(借用3位网络号)0 0000(剩余主机位数))
+						192.168.0.0/27~192.168.0.32/27 可用(192.168.0.1 ~ 192.168.0.30)
+						例：IP：192.168.0.80 子网地址：192.168.0.64/27~192.168.0.96/27  64+2^5(主机最少位数) = 96 可用(192.168.0.65 ~ 192.168.0.94)
+						
+			10台为B网	(2^n)-2 >= 10 n = 4
+						8-4 = 4
+						掩码：255.255.255.240
+						192.168.0.96/28 ~ 192.168.0.112/28 96+2^4 = 112 可用(192.168.97 ~ 192.168.0.110)
+						
+			IP地址172.16.66.10 255.255.192.0(/18) 的子网地址和广播地址？ 18-16 = 2   2^6 = 64
+			子网	172.16.64.0~172.16.128.0 可用(172.16.64.1 ~ 172.16.127.254) 广播172.16.127.255
+			IP地址172.16.50.10 255.255.224.0(/19) 的子网地址和广播地址？ 19-16 = 3	 2^5 = 32
+			子网	172.16.32.0~172.16.64.0 可用(172.16.32.1 ~ 172.16.63.254)
+			
+		超网合并
+			子网掩码往左移1位，能够合并2个连续的网段(小网段为偶数，大网段为奇数(保证第0位为0 和 1)。相反要进位，跨网段合并)，但不是任何连续的网段都能合并
+			192.168.0.0 192.168.1.0 合并后255.255.254.0    0-->0000 0000 1-->0000 0001 网络左移1位屏蔽不同部分
+			192.168.2.0 192.168.3.0 合并后255.255.252.0	   2-->0000 0010 3-->0000 0011 网络左移1位屏蔽不同部分
+			192.168.1.0 192.168.2.0 不能合并，合并后192.168.0.0 192.168.3.0都在同一个网段不符合，要是将4网段个合并可以左移2位
+			判断连续2个网段是否能够合并，只要第一个网络号能被2整除，就能够通过左移1位子网掩码合并。2^n = 2(左移n为子网掩码合并)
+			判断连续4个网段是否能够合并，只要第一个网络号能被4整除，就能够通过左移2位子网掩码合并。2^n = 4(左移n为子网掩码合并)
+			判断连续8个网段是否能够合并，只要第一个网络号能被8整除，就能够通过左移3位子网掩码合并。2^n = 8(左移n为子网掩码合并)
+			
+	交换机基于数据帧的MAC地址转发数据帧，路由器基于数据包IP地址转发数据包
+	数据包传输过程不变，网络设备数据帧要用新的物理层地址重新封装
+	MAC地址决定数据帧下一跳哪个设备接收，而IP地址决定了数据包的起点与终点
+	
+	ARP&RARP
+		IP--->ARP--->物理地址
+		物理地址--->RARP--->IP
+		
+		IP数据报需从主机A上传送到主机B上，主机A首先查找路由表;
+		if(目的主机是与自己在同一个网段内)
+		{
+			主机A查询自己的ARP表;
+			if(有该目的IP地址对应的MAC地址的记录)
+			{
+				将该MAC地址作为目的MAC地址，封装数据帧，传送给主机B;
+			}
+			else
+			{
+				发送一个ARP请求广播给网段内的所有主机，来查询该目的IP地址的MAC地址;
+				发送端IP地址和发送端MAC地址为主机A的IP地址和MAC地址，目标IP地址和目标MAC地址为主机B的IP地址和全0的MAC地址。
+				收到ARP请求报文的各个主机，如果发现该IP地址是自己的IP地址时，将ARP请求报文中的发送端（即主机A）的IP地址和MAC地址存入自己的ARP表中。之后以单播方式发送ARP响应报文给主机A，其中包含了自己的MAC地址。
+				如果发现不是自己的IP地址，则丢弃该报文。
+				主机A收到这个应答报文后，就按照返回的MAC地址，将IP数据包封装成帧，然后发送到主机B上;
+				（补充：一般为了减少网络中的报文量，通信双方会维护一个各自的ARP表，把一次通信中获得IP MAC地址对保存在缓冲的ARP表中,但是ARP表有一个老化机制，删除一段时间内不用的IP MAC地址对。）
+			}
+		}
+		else
+		{
+			发ARP包请求得到下一跳的MAC地址
+			把报文发给该表目指定的下一站的路由器或直接连接的网络接口;//源MAC地址改为当前MAC 目的MAC地址改为为下一跳MAC	
+			//ARP请求报文只负责IP数据报传输过程中每一跳中的目的MAC地址查询。
+		}
 
-阻塞与非阻塞I/O与异步通知
-    阻塞:用户阻塞至可访问
-    非阻塞:用户可以用轮询是否可以访问,用户态不必阻塞,内核中驱动使用poll
-    异步:用户根据设备自身通知进行访问,用户态不必阻塞,内核中驱动用信号
-    内核态中可使用等待队列,调用其他进程
-            
-    轮询操作
-        用户态
-            select
-                监听读,写,异常的文件描述符集合,文件满足时返回
-                调用时,驱动中的poll均被调用
-            poll
-            epoll
-                多个fd时,用epoll好
-        内核态
-            poll(struct file *, struct poll_table *)
-                1.对于可能引起文件状态变化的等待队列调用poll_wait(),将对应的等待队列头部加入poll_table中
-                2.返回表示是否能对设备进行无阻塞读写访问的掩码
-            向poll_table注册队列的函数,把当前进程添加到wait参数指定的等待列表中,让唤醒参数,queue可以唤醒因select而睡眠的进程
-                poll_wait(struct file *, wait_queue_head_t *, struct poll_table *)
-    信号
-        用户态
-            void (*signal(int signum, void (*handle)(int)))(int)  //signal(...) 为一个指针函数,返回值函数指针     
-            typedef void (*sighandler_t)(int);
-            sighandler_t signal(int signum, sighandler_t handler);
-                第一个参数指定信号的值(信号列表定义),第二个指定前面信号值的处理函数,
-                    SIG_IGN : 表示忽略
-                    SIG_DFL : 采用系统默认方式处理
-                    用户自定义 : 前面信号捕获后,该函数将被执行
-            sigaction(int ,const struct sigaction *, struct sigaction *)
-                第一个参数信号的值,第二个参数新处理方式,若为NULL以缺省处理,第三个参数保存原来的处理方式
-                二三参数为空则为检测信号不处理
-        内核态
-            9.2.3信号的释放
-platform设备驱动
+	RARP
+		发送主机发送一个本地的RARP广播，在此广播包中，声明自己的MAC地址并且请求任何收到此请求的RARP服务器分配一个IP地址；
+		本地网段上的RARP服务器收到此请求后，检查其RARP列表，查找该MAC地址对应的IP地址；
+		如果存在，RARP服务器就给源主机发送一个响应数据包并将此IP地址提供给对方主机使用；
+		如果不存在，RARP服务器对此不做任何的响应；
+		源主机收到从RARP服务器的响应信息，就利用得到的IP地址进行通讯；如果一直没有收到RARP服务器的响应信息，表示初始化失败。
+	
+	IP数据报(首部+数据部分(含ICMP报文))
+		首部
+			Bit	0------4--------8------------------16---19--------------24---------31
+				| 版本 |首部长度|     服务类型   	|			  总长度			|
+			固	|-------------------------------------------------------------------|
+				|				标识			    |标志|		  片位移			|
+			定	|-------------------------------------------------------------------|
+				|	 生存时间   |		协议		|			首部校验和			|
+			部	|-------------------------------------------------------------------|
+				|							 源地址									|
+			分	|-------------------------------------------------------------------|
+				|							目的地址								|
+				|-------------------------------------------------------------------|
+			可变|						可选字段(长度可变)				|	填充	|
+				---------------------------------------------------------------------
+			版本：4位；IP协议的版本号目前为4(IPV4)。
+			首部长度：4位来表示最大数值是15个单位(一个单位4字节)IP的首部长度最大值60字节。
+			服务类型：8位；用来更好获得服务又叫QoS，一直未必使用，需要和路由器设置匹配才有效。
+			总长度：16位；首部和数据之和长度，最大为65535，总长度不超过最大传输单元MTU。
+			标识：16位；计数器，产生数据报的标识，不是序号，每产生一个数据报，增加1。
+			标志：3位；目前只有前两位有意义，最低位MF。MF = 1表示后面"还有分片(一个MTU分开好多小片段都加上首部传输)"。MF = 0表示最后一个分片，中间一位DF，DF = 0才允许有分片。
+			片偏移：13位；较长的的分组在分片后，某片在原分组中的相对位置，片偏移以8字节为偏移单位，片偏移 = 起始字节/8。
+			生存时间：8位；记为TTLs数据报在网络中可通过的路由器的最大值，每经过一个路由器-1，到0路由器丢弃。
+			协议：8位；指出数据报携带的数据使用何种协议，以便目的主机的IP将数据报上交给哪个处理过程。
+			首部校验和：16位；验证数据报的首部，
+				发送端 字1 字2 检验和置0 ... 字n-->反码算术运算求和-->取反码作为校验和
+				接收端 字1 字2 校验和 ... 字n -->反码算术运算求和-->取反码作为结果
+				结果 = 0则保留，否则丢弃
+			可选字段：1~40字节用来支持排错测量以及安全等措施。
+			
+	数据路由 
+		数据包必须能去能回网络才通，沿途路由器必须知道到目标网络下一跳的哪个接口
+		
+	ICMP
+		主机或路由器报告差错情况和提供有关异常情况的报告
+		报文
+			Bit	0-----------8----------16----------31
+				|	类型	|	代码	|	校验和	|
+				-------------------------------------
+				|		取决于ICMP报文类型			|
+				-------------------------------------
+				|		数据部分(长度取决于类型)	|
+				-------------------------------------
+			类型两种：差错报告报文和询问报文
+			差错报告五种：终点不可达、源点抑制、时间超时、参数问题和改变路由(重定向)
+			询问报文两种：回送请求和回答报文，时间戳请求和回答报文
+		A--ping->B
+		收到的IP数据报(B)：IP数据报首部+8字节+IP数据报数据字段(ping信息)
+		ICMP差错报文： ICMP8字节+IP数据报首部+8字节(8字节为信息)(去掉IP数据报数据字段)
+		返回给A：IP数据报首部+ICMP差错报文
+		
+	IGMP
+		组播(多播)协议
+		
+	动态路由协议
+		RIP (自治系统)
+			周期性广播更新路由表(30s) 根据跳数选择最佳路径(不考虑带宽，可能选择带宽低路径) 最大跳数16
+		OSPF(自治系统)
+			根据带宽选择最佳路径 支持多区域 触发式更新(添加删除才更新) 三个表(邻居表 hello包(维持邻居表) 链路状态表)
+		BGP	(不同自治系统)
+			连接各个自治系统
+			
+	VPN
+		VPN定义了两个内部网络的路由器之间通过Internet建立的通信隧道，使用IP-in-IP封装后在隧道中转发数据报
+		为了保证保密性，隧道发送路由器把内网IP数据报加密后，封装为外网IP数据报的数据部分在外网中进行传输(内网IP数据报再封装成外网IP数据报(重新添加源IP地址和目的地址))
+		隧道接收路由器收到数据报后，从外网数据报中取出数据部分，将数据报解密，还原成内网数据报，然后转发该数据报
 
-    虚拟总线,将设备信息和驱动程序分离
-    /sys/bus/platform
-    device
-        挂在platform下的设备
-    drivers
-        与某种设备相对于的驱动
-        
-    struct platform_device {
-        const char	    *name;      
-        int		        id;         
-        bool		    id_auto;
-        struct device	dev;        
-        u32		        num_resources;      
-        struct resource	*resource;  flags
-        const struct platform_device_id	*id_entry;
-        char *driver_override; /* Driver name to force a match */
-        /* MFD cell pointer */
-        struct mfd_cell *mfd_cell;
-        /* arch specific additions */
-        struct pdev_archdata	archdata;
-    }[] = {
-        .name = "",     //设备名称,与驱动名称匹配
-        .id = ,         //插入该总线,具有相同name的设备编号,-1表示只有一个设备
-        .resource = ,   //有宏定义 用于资源申请 start end name
-        .num_resources = , //resource 数量 ARRAY_SIZE()
-        .dev = {
-            .release = ,    // .release,向内核提供release函数,可以设置私有数据
-        },
-    };
-    struct platform_driver {
-        int (*probe)(struct platform_device *);     
-        int (*remove)(struct platform_device *);    
-        void (*shutdown)(struct platform_device *);
-        int (*suspend)(struct platform_device *, pm_message_t state);
-        int (*resume)(struct platform_device *);
-        struct device_driver driver;
-        const struct platform_device_id *id_table;
-        bool prevent_deferred_probe;
-    }[] = {
-        {
-            .driver = {
-                .name = "", //匹配
-            },
-            .probe = ,  //匹配时调用
-            .remove = , //卸载时调用
-        },
-        {
-            .driver = {
-                .name = "", //匹配
-            },
-        },
-    };
-    
-    获取device资源信息
-        platform_get_resource
-    在内存申请资源信息
-        request_mem_region
-    物理地址映射逻辑地址,供驱动程序操作
-        ioremap
+		
+	网络地址转换
+		内网地址---->NAT路由器---->外网(源IP地址 改为 NAT路由器IP地址，源端口改为NAT路由器生成端口)
+		外网---->NAT路由器---->内网地址(目的IP地址 改为 NAT路由器IP地址，目标端口为NAT路由器端口，由路由器根据端口查询主机请求)
+		
+		NAT路由器转发出去的数据包的源端口是路由器生成的NAT端口，并不是内部主机发过来的内部端口(因为两台主机的端口可能一样)
+		如果再有两台内部主机同时访问相同网站，NAT根据响应包的目的端口(注意这里是NAT端口)，并查询地址转换表，即可将响应组装成内部IP数据报，并转发到正确的主机。
+		
+		端口映射(外网可以访问内网)
 
-
-
-    
-I2C
-    总线驱动
-        适配器数据结构I2C_adapter
-        适配器的算法数据结构I2C_algorithm
-        控制适配器产生通信信号的函数
-    设备驱动
-        通过适配器与CPU交互
-        I2C_driver I2C_client
-    i2c-core.c
-        实现接口,与核心功能
-    i2c-dev.c
-    
-    gpio模拟
-        i2c_bit_add_bus(struct i2c_adapter *adap)
-        struct i2c_adapter = {
-            .algo_data = i2c_algo_bit_data, //算法数据gpio模拟get set ... 
-            .delay = ,  //5us 标准速率 (10^6 / 5 / 2) = 100kbits = 100KHZ 
-            .timeout = ,
-        };
-        
-        struct i2c_algo_bit_data = {
-            .data = ,       //setscl ...等函数的参数 
-            .setscl = ... , //setscl方法
-            .setsda = ... , //
-            .getsda = ... , //
-        };
-        
-pci
-    driver/pci/quirks.c中注册函数修复bug
-        当scan root port 时发现vendor
-        
-    注册XXX(触发时机) include/linux/pci.h
-        DECKARE_PCI_FIXUP_XXX(vendor, device, func)
-    
-     
-        
-    
-
-
+	VPN是将内部IP数据报加密后打包成外部IP数据报的数据部分，它的主要目的是为了数据的保密性，
+	NAT是纯进行地址转换，它的目的是为了解决本地编址的内部网络与外网通信的问题。	
+			
+------------------------------------------------------------------------------	
+传输层
+	TCP 分段 编号 流量控制 建立会话
+		如何实现可靠传输
+			发送方要收到接收方应答才继续发下一个包		 
+			发送方连续发送多个分组，不必每发完一个等待确认，提高信道利用率：流水线传输
+			连续ARQ协议
+				发送方维持发送窗口(如发送窗口为5)
+				1 2 3 4 5 6 7 8 9 10 11 12
+			发送方：连续发送5个包，等到数据包1应答后，变为23456，开始发送数据包6，始终维持发送窗口5
+			接收方：采用累积确认，一次收到几个包才回发应答，如收到123数据包，发数据包3应答，发送方收到后代表123数据包发送成功，发送45678
+					若收到124数据包，发送数据包2应答，发送方收到后代表1 2数据包发送成功，发送34567
+					
+		报文首部格式(20字节固定头部 TCP首部+TCP数据部分)
+			Bit 0--------3-------7-----16-------24-------------31
+				|		 源端口			|		目的端口		|
+				|-----------------------------------------------|
+				|				 	   序号						|
+				|-----------------------------------------------|
+				|				 	  确认号					|
+				|-----------------------------------------------|
+				|数据偏移| 保 留 |控制位|	  	  窗口			|
+				|-----------------------------------------------|
+				|		 校验和			|		紧急指针		|
+				|-----------------------------------------------|
+				|		 选项(长度可变)			|	   填充		|
+				-------------------------------------------------
+			源端口：16位，最大65535。
+			目滴端口：16位，最大65535。
+			序号：32位，序号为TCP数据部分起始占整个文件的多少个字节。
+			确认号：32位，确认后号为最后一个字节+1，是指下一次应该收到的数据的序列号。
+			数据偏移：4位，该字段表示TCP所传输的数据部分应该从TCP包的哪个位开始，当然也可以把它看做TCP首部的长度。0001(化为10进制)*4字节。
+			保留：4位
+			控制位：8位
+				CWR(Congestion Window Reduced)：CWR标志与后面的ECE标志用于IP首部的ECN字段。ECE标志为1时，则通知对方将拥塞窗口变小。
+				ECE(ECN-Echo):ECE标志表示ECN-Echo。置为1会通知通信对方，从对方到这边的网络有拥塞。在收到数据包的IP首部中ECN为1时将TCP首部中的ECE设置为1。
+				URG(Urgent Flag):该为为1时，表示包中有需要紧急处理的数据。对于需要紧急处理的数据，会在后面的紧急指针中再进行解释。
+				ACK(Acknowledge Flag):该位为1时，确认应答的字段变为有效。TCP规则除了最初建立时的SYN包之外该为必须设置为1。
+				PSH(Push Flag):该位为1时，表示需要将受到的数据立即传输给上层的应用。PSH为0时，则不需要立即上层而是先进行缓存。
+				RST(Reset Flag):该位为1时表示TCP连接中出现异常必须强制断开连接。例如，一个没有被使用的端口即使发来连接请求，也无法通行。
+								此时就可以返回一个RST设置为1的包。此外，程序宕掉或切断电源等原因导致主机重启的情况下，由于所有的连接信息将全部被初始化，
+								所以原有的TCP通行也将不能继续进行。这种情况下，如果通信对方发送一个设置为1的RST包，就会使用心强制断开连接。
+				SYN(Synchronize Flag):用于建立连接。SYN为1表示希望建立连接，并在其序列号的字段进行序列号初始值的设定。
+				FIN(Finish Flag):该位为1时，表示今后不会再有数据发送，希望断开连接。当通信结束希望断开连接时，通信双方的主机之间就可以相互交换FIN位置为1的TCP段。
+								每个主机又对对方的FIN包进行确认应答以后就可以断开连接。不过，主机收到FIN设置为1的TCP端以后不必马上回复一个FIN包，
+								而是可以等到缓冲区中所有数据都已成功发送而被自动删除之后再发。
+			窗口：16位，指TCP发送，接收的缓存数据最大
+			校验和：16位，
+			紧急指针：16位，当URG标志位为1时才代表，紧急数据的长度
+			选项：40字节，1111(15数据偏移最大数据)*4字节 - 20(头部固定) = 40字节(最大)。
+			
+		流量控制
+			发送确认包时，发送当前窗口可以接收数据长度，实时更改窗口大小。窗口大小根据接收方窗口和拥塞窗口最小那个决定
+		
+		拥塞控制
+			慢开始+拥塞避免
+				设置拥塞窗口值，数据包一次发送窗口值，若往返快，则指数增长窗口值，达到设置的阈值，用加法增加窗口值。
+				发送丢包，重新计算阈值，窗口值清0重新发送，未达到阈值时，继续指数增长
+			快重传
+				收到124数据包时及时连续发送缺3应答包，
+			快重传+拥塞避免	
+				设置拥塞窗口值，数据包一次发送窗口值，若往返快，则指数增长窗口值，达到设置的阈值，用加法增加窗口值。
+				当发送方连续收到三个重复的确认包时转入拥塞避免
+				拥塞窗口值不清0，直接将阈值给窗口值，开始加法增加窗口值
+				
+		三次握手连接
+			A										B
+				SYN = 1, ACK = 0, seq = x(序号)		
+			 -------------------------------------->(1)
+			  SYN = 1, ACK = 1, seq = y, ack = x+1(确认号)
+			 <--------------------------------------(2)
+				  ACK = 1, seq = x+1, ack = y+1
+			 -------------------------------------->(3)
+			
+			状态变化
+			A：CLOSED--(1)-->SYN-SENT--收到(2)-->ESTAB-LISHED--(3)-->
+			B：CLOSED-->LISTEN--收到(1)-->SYN-RCVD--(2)--> --收到(3)-->ESTAB-LISHED
+			假如没有三次握手少第三次
+				A发送给B，假如A选择路由比较拥塞/远(包1)，未等到B应答，再次发送请求连接(包2)。
+				B收到包2发送应答并建立连接，过了一会，包1到达B建立连接，但是A已经与B建立连接，忽略包1应答的建立连接。
+				B给A发送包1应答包后，B等待用包1与A建立的数据连接，但A忽略包1应答连接，造成B一直等待资源浪费。
+				
+		连接释放
+			A										B
+					 FIN = 1, seq = u(序号)		
+			 -------------------------------------->(1)
+				ACK = 1, seq = v, ack = u+1(确认号)
+			 <--------------------------------------(2)
+				FIN = 1, ACK = 1, seq = w, ack = u+1
+			 <--------------------------------------(3)
+				ACK = 1, seq = u+1, ack = w+1
+			 -------------------------------------->(4)
+			状态变化
+			A：ESTAB-LISHED--(1)-->FIN-WAIT-1--收到(2)-->FIN-WAIT-2--收到(3)-->TIME-WAIT--(4)--等待2MSL-->CLOSED
+			B：ESTAB-LISHED--收到(1)-->CLOSE-WAIT--(2)--> --(3)-->LAST-ACK--收到(4)-->CLOSED
+				
+		特点：
+			面向连接的传输层协议
+			每一条TCP连接只能有两个端点，每一条TCP连接只能是点对点的
+			提供可靠交付的服务
+			提供全双工通信
+			面向字节流
+			
+		TCP连接的端点不是主机，不是主机的IP地址，不是应用进程，不是传输层的协议端口，是套接字
+		端口号拼接到IP地址构成套接字
+	
+	UDP 一个数据包能完成数据通信 不建立会话 多播
+		首部
+			Byte0-----2-------------2-------------2-----------2------
+				|	源端口	|	目的端口	|	 长度	|	校验和	|
+				-----------------------------------------------------
+		特点：
+			无连接，发送数据之前不需要建立连接
+			尽最大努交付，不保证可靠交付，同时也不使用拥塞控制
+			面向报文，UDP没有拥塞控制，很适合多媒体通信要求
+			支持一对一，一对多，多对一的交互通信
+			首部开销小，共8字节
+		
+	
+	用端口定位服务(http/FTP.....)，用IP地址定位服务器
+	传输层与应用层之间关系
+		应用层协议 = 协议 + 端口
+		http = TCP + 80
+		https = TCP + 443
+		FTP = TCP + 21
+		SMTP = TCP +25
+		POP3 = TCP + 110
+		RDP = TCP + 3389
+		共享文件夹 = TCP + 445
+		SQL = TCP + 1433
+		DNS = UDP + 53 OR TCP + 53
+		每种网络的服务功能都不相同，因此有必要将不同的封包送给不同的服务来处理
+		当你的主机同时开启了多个服务时，别人送来的数据包，就会依照数据包的 port 号码来给特定服务来处理。
+		
+------------------------------------------------------------------------------	
+应用层
+	http https ftp DNS SMTP POP3 RDP
+	
+	域名
+		根 .
+		顶级域名 com edu net cn org gov(服务器性质)
+		二级域名 91xueit inhe
+		三级域名 dba
+		www.dba.91xueit.com.
+		
+	DNS服务
+		谷歌DNS 8.8.8.8
+		电信DNS服务器 222.222.222.222
+		将域名解析成IP地址
+		
+		域名解析过程
+			根管理各个顶级域名地址，顶级域名管理对应IP地址如com 管理 www.xxx.com的IP地址
+			如访问 WWW.ABC.NET，访问com域名，不在com中，访问根域名服务器，得到net地址，com服务器访问net查询IP地址并返回用户
+	
+	DHCP
+		动态分配IP地址
+		DHCP地址必须是静态
+		
+		请求IP地址过程
+			客户端广播，DHCP服务器从IP地址中选一个给客户端
+	
+	FTP	
+		控制连接
+			传输操控命令 21端口 发送FTP命令信息
+		数据连接
+			主动模式
+				FTP客户端告诉FTP服务器使用什么端口侦听
+				FTP服务器和客户端的这个端口建立连接 FTP源端口20
+			被动模式
+				FTP服务器打开端口等待客户端连接
+		传输模式
+			文本：ASCII模式，以文本序列传输数据
+			二进制：Binary模式，以二进制序列传输数据2	
+	
+	HTTP
+		URL <协议>://<主机>:<端口>/<路径>
+	
+	Web代理服务器
+		节省内网访问Internet的带宽
+		通过Web代理绕过防火墙，如路由器防火墙(非内网目的IP丢弃)
+		
+------------------------------------------------------------------------------
+网络安全
+	截获：从网络数窃听他人通信内容
+	中断：有意中断他人在网络上的通信
+	篡改：故意篡改网络上传送的报文
+	伪造：伪造信息在网络上传送
+	
+	加密技术
+		对称加密：双方密钥相同
+		非对称加密：双方密钥不同，公钥加密只有私钥解
+		数字签名
+		证书颁发机构：为企业和用户颁发数字证书，确认企业和个人身份
+		
+	安全套接字SSL(应用层)
+		https用了安全套接字
+		传输层<--SSL(加密)--应用层
+	
+	IPSec(网络层)
+		AH：鉴别源点和数据完整性，不能保密
+			IP首部+AH首部+TCP/UDO报文段
+		ESP：鉴别源点，检查数据完整性和提供保密
+			IP首部+ESP首部+TCP/UDO报文段+ESP尾部+ESP鉴别
+			
+	数据链路层安全
+		PPP
+		ADSL 

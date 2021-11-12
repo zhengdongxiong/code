@@ -1052,7 +1052,7 @@ readl,writel -- 往内存映射空间操作
 						dma_set_coherent_mask()
 					
 			一致性DMA缓冲区(申请一块DMA内存)
-				dma_alloc_coherent(struct device *, size_t, dma_addr_t *, gfp_t)    //通过dma_addr_t返回DMA缓冲区的总线地址
+				dma_alloc_coherent(struct device *, size_t, dma_addr_t *, gfp_t)    /* 通过dma_addr_t返回DMA缓冲区的总线地址 */
 				dma_free_coherent(struct device *, size_t, void *, dma_addr_t *)
 				dma_alloc_writecombine(struct device *, size_t, dma_addr_t *, gfp_t)
 				dma_free_writecombine(struct device *, size_t, void *, dma_addr_t *)
@@ -2193,9 +2193,42 @@ USB
 	
 	时钟驱动
 		struct clk = {
-			
+			时钟操作
+				.ops
 		};
-		20.8
+		调用顺序
+			clk_enable(clk); --> clk->ops->enable(clk->hw);
+		注册/使能
+			clk_register(struct device *, struct clk_hw *)
+			clk_prepare(struct clk *) 可以睡眠
+			clk_prepare_enable(struct clk *) 可以睡眠, 完成准备和使能
+		参考
+			dirvers/clk/clk-prima2.c
+		索引表
+			clocks=<&clks index>
+	DMA
+		流程
+			初始化 --> 传输队列并启动 --> 回调函数
+				dmaengine_prep_dma_xxx()
+				dma_async_issue_pending() 
+				desc->callback()
+			周期性/各类描述符
+				daemgome_prep_dma_cyclic()
+				include/linux/dmaengne.h
+		注册
+			dma_async_device_register()
+		参考
+			sound/soc/soc-dmaengine-pcm.c
+			drivers/dma/pl330.c
+			drivers/dma/omap-dma.c
+
+调试
+	GDB
+		启动
+			gdb <filename>
+		命令
+			list [-]<linenum/function> /* -为前面, 查看行/函数代码 */
+		21.1.1
 UBOOT
 	启动kernel(bootz bootm booti)
 		bootX <kernel addr> <rootdisk addr>:<size> <fdt addr>
