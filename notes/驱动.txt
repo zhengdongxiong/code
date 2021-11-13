@@ -2228,7 +2228,83 @@ USB
 			gdb <filename>
 		命令
 			list [-]<linenum/function> /* -为前面, 查看行/函数代码 */
-		21.1.1
+			程序控制
+				run/back/next/print r/b/n/p
+			run
+				设置参数
+					set args <....>
+				运行环境
+					how path
+					set environment [varname]=[value] /* 设置环境变量 */
+					show environment [varname] /* 查看环境变量 */
+			break
+				break <function>
+				break <linenum>
+				break [+/-]<linenum> /* 在当前行号的前/后几行设置断点 */
+				break *address /* 在程序运行的内存地址处停住, info add <name>获取地址 */
+				break if <name> == x /* 再变量name == x停止 */
+				info break [num] /* 查看所有断点, [num]查看指定的断点 */
+			单步执行
+				step [count] /* 如果有函数调用, 则进入函数内部, [count] 执行后面count条命令 */ 
+				next [count] /* 如果有函数调用, 不进入函数内部, [count] 执行后面count条命令 */
+				finsh /* 打印函数返回时的堆栈地址, 返回值及参数信息 */
+				until/u /* 退出循环体 */
+				continue/c [count] /* 继续执行, [count]忽略后面的count个断点 */
+				stepi/nexti /* 跟踪一条机器指令 */
+			print
+				print /format [expr] /* print [format]为输出格式, [expr]为查看的变量 */
+				print [name]=[value] /* 修改变量的值 */
+				print [opt] /* print arry@4  @前面为查看数组名, 后面为查看长度 */
+				每一次print都被记录$1, $2, $3, $4, $5
+			watch
+				watch [expr] /* 表达式有变化时, 立即停止 */
+				rwatch [expr] /* 表达式被读时, 立即停止 */
+				awatch [expr] /* 表达式被读或者写时, 立即停止 */
+				info watchpoints  /* 查看所有观察单点 */
+			内存地址
+				examine/x/[n/f/u] [addr] /* 缩写x, 查看内存中地址值, 
+										  * n/f/u, x/3uh 0x54320 
+										  * 从内存地址0x54320开始, 以双字(h),16进制(u)方式, 显示3个单位(3)
+										  * n显示后几个地址内容
+										  * f为显示的格式, 显示字符串则为s
+										  * u为从当前地址往后请求的字节数
+										  */ 
+				set *[name] = [value] /* 修改name内存值 */
+					set *p = 'h'; set *(p+1) = 'e'; set *(p+2) = 'l';
+					x/s p /* 打印出hel */
+			jump
+				jump [linenum] /* 下一条语句运行点 */
+			signal
+				signal [num] /* 在断点处产生一个信号量 */
+			return
+				return [value] /* 在函数中返回, 若设置value, 则value为返回值 */
+			call
+				call [expr] /* 强制调用, 可以是函数 */
+			info
+				info registers /* 查看除浮点型寄存器外的所有寄存器 */
+				info all-registers /* 查看所有寄存器 */
+	
+	/proc
+		proc_xxx_xxx
+		
+	BUG
+		BUG_ON() /* 条件成立时抛出oops */
+		WARN_ON() /* 条件成立时抛出栈回溯 */
+	
+	KGDB
+		目标等待kgbd连接
+			传递给内核参数加入bgdbwait
+		目标进入kgdb调试模式
+			echo g > /proc/sysrq_trigger
+		进入调试
+			xx-gbd ./vmlinux 
+	
+	sysctl
+		改变正在运行的linux接口对应内核函数sys_sysctl
+		echo "1" > /proc/sys/net/ipv4/ip_forward == sysctl -w net.ipv4.ip_forward = "1"
+		
+		
+	
 UBOOT
 	启动kernel(bootz bootm booti)
 		bootX <kernel addr> <rootdisk addr>:<size> <fdt addr>
