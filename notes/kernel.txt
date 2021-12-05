@@ -103,4 +103,86 @@
 				table = 0x21 --> 选择页表中第0x21表项查找物理地址
 				offset = 0x406 --> 读取物理地址偏移0x406中字节
 				如果table中present标志位0, 产生缺页异常, 进程访问范围外地址, 均产生缺页异常
+		物理地址扩展分页
+			32位线性地址转换为36位物理地址可寻址2^36 = 64GB
+			通过设置CR4中PAE标志激活PAE, 页目录项中的大小标志改为2MB
+			引入页目录指针表(PDPT), 由4个64位表项组成
+			CR3包含一个27位页目录指针表基地址, PDPT存放在RAM中前4GB中, 并在32bytes倍数对齐
+			映射到4KB时
+				CR3 指向PDPT
+				pdpt表项(2bit) + dir(页表9bit) + table (9bit)+ offset(12bit)
+			映射到2MB时
+				CR3 指向PDPT
+				pdpt表4项中的一个2bit) + dir(页表8bit) + offset(21bit)
+		硬件高速缓存
+			73页(cache)
+		TLB
+			  线性地址第一次被使用时, 通过慢速访问RAM中页表计算出相应的物理地址,
+			同时物理地址存放在TLB表项中, 以便以后对同一个线性地址引用可快速转换
+			  每一个CPU上都有TLB表, 当CPU的CR3寄存器被修改时, 硬件使本地TLB所有项无效
 
+	Linux中的分页
+		采用4级分页(兼容32和64bit系统)
+			PGD + PUD + PMD + PT + offset
+			对于两级页表足够系统(32bit), 页上级目录(PUD)和页中间目录(PMD)均为0
+		  每一个进程有自己的页全局目录, 发生进程切换时, 把CR3寄存器的内容保存执行进程的描述符中
+		将下一个要执行的进程描述符装入CR3中
+		线性地址字段
+			PAGE_SHIFT
+				值为12, 指定offset位数, 页大小4KB, PAGE_MASK(0xfffff000)屏蔽offset所有位
+			PMD_SHIFT
+				offset与table字段总位数
+				PAE禁用时, 值为22(offset 12bit + table 10bit)
+				PAE激活时, 值为21(offset 12bit + table 9bit)
+			PUD_SHIFT
+				32位中等价于PMD_SHIFT
+			PGDIR_SHIFT
+				PAE禁用时, 值为22(offset 12bit + table 10bit, 同PMD_SHIFT)
+				PAE激活时, 值为30(offset 12bit + table 9bit + PMD 9bit)
+			PTRS_PER_PTE/PME/PUD/PGD
+				计算页表/页中间目录/页上级目录/页全局目录中表项个数
+				PAE禁用时, 值分别为1024, 1, 1, 1024
+				PAE激活时, 值分别为512, 512, 1, 4
+		页表处理
+			PAE激活时, 下列数据类型均为64位, 否则32位
+			pte/pmd/pud/pgd/pgprot_t
+				页表项, 页中间目录项, 页上级目录项, 页全局目录项, 单独表项相关保护标志
+			pte/pmd/pud/pgd_none
+				相应表项为0, 则为1
+			pte/pmd/pud/pgd_clear
+				清除相应表一个表项, 由此禁止进程使用该表项映射线性地址	、
+				ptep_get_and_clear()清除一个表项并返回前一个值
+			set_pte/pmd/pud/pgd
+				向一个页表项写入指定值
+				set_pte_atomic, 当PAE激活时, 保证64位值被原子写入
+			__pte/pmd/pud/pgd
+				将无符号整数转换为所需要的类型
+			pte/pmd/pud/pgd_val
+				将特殊类型转换为无符号整数
+			pte_same
+				两个页表项指向同一页并且指定相同的访问优先级, 则返回1
+			pmd_large
+				如果页中间目录项指向一个大型页, 那么返回1
+			pmd_bad
+				如果目录项指向一个不能使用的页表(P/RW/A/D标志位清除), 则为1
+			pte/pud/pgd_bad
+				pud/pgd总是0, 无pte_bad, 页表项引用一个不在主页/不可写/无法访问均合法
+			pte/pmd/pud/pgd_present
+				一个页表项P/PS标志为1, 则返回1, pud/pgd总是1,
+				  存在于主存没有读写或执行, 内核将P和PS位设置为0和1, 访问这些页均产生缺页异常
+				然后通过PS位判断是不是缺页
+			读页标志函数
+				pte_user/read/write/exec/dirty/young/file
+					读各标志位, 除file外, 当present位为1才有效,
+					pte_file(当present被清除, Drity被设置时, 属于一个非线性磁盘文件映射)
+			设置标志
+				mk_pte_huge 设置PS与P位
+				pte_wr/rd/exprotect/ pte_mkclean/old  清除标志
+				pte_mkwrite/read/exec/dirty/young 设置标志位
+				pte_modify 页表项所有访问权限设置为
+				ptep_set_wrprotect 作用与指向页表项指针功能与pte_wrproct类似
+				ptep_set_access_flags 如果dirty标志位1, 将页存取权限设置指定值, 并调用flush_tlb_page
+				ptep_mkdirty 作用与指向页表项指针功能与pte_mkdirty类似
+				ptep_test_and_clear_dirty 作用与指向页表项指针功能与pte_mkdclean类似, 并返回dirty标志
+				ptep_test_and_clear_young 作用与指向页表项指针功能与pte_mkold类似, 并返回accessed标志
+			表2-7 P81
