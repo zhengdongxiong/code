@@ -185,4 +185,29 @@
 				ptep_mkdirty 作用与指向页表项指针功能与pte_mkdirty类似
 				ptep_test_and_clear_dirty 作用与指向页表项指针功能与pte_mkdclean类似, 并返回dirty标志
 				ptep_test_and_clear_young 作用与指向页表项指针功能与pte_mkold类似, 并返回accessed标志
-			表2-7 P81
+			对页表操作的宏
+				pgd/pud/pmd_index 找到线性地址addr对应的目录项中的索引
+				pgd_offset 接收内存地址描述符mm, 和线性地址addr为参数, 产生addr在页全局目录中相应表项的线性地址
+					通过内存描述符中的一个指针找到页全局目录
+				pgd_offset_k 产生主内核也全局目录总的某个线性地址, 该项对应于地址addr
+				pgd_page 通过页全局目录项pgd, 产生页上级目录所在页框的页描述符地址, 在2/3级分页中等价于pud_page
+				pud_offset 接收页全局目录项指针pgd, 和线性地址addr为参数, 产生addr在页上级目录中相应表项的线性地址
+				pud_page 通过页上级目录项pud产生页中间目录线性地址, 在2分页中等价于pmd_page
+				pmd_offset 接收页上级目录项指针pud, 和线性地址addr为参数, 产生addr在目录项中相应表项的线性地址
+				pmd_page 通过页中间目录项pmd产生对应页表描述符地址, 在2/3级分页系统中, pmd实际上是页全局目录中一项
+				mk_pte 接收页描述符地址p和一组存取权限prot作为参数并创建相应的页表项
+				pte_offset_map 接收向一个页中间目录项指针dir和线性地址addr, 产生与线性地址addr相应的页表项的线性地址
+					如果页表被保存在高端内存中, 那么建立一个临时内核映射, 并用pte_unmap进行释放,
+					pte_offset_mao_nested, pte_unmap_nested这两个宏功能相同但使用不同内核映射
+				pte_page 返回页表项x所引用页的描述符地址
+				pte_to_pgoff 从一个页表项pte字段内容提取出文件偏移量, 偏移量对应着一个非线性文件内存映射所在页
+				pgoff_to_pte 为非线性文件内存映射所在的页创建对应页表项的内容
+			页分配函数
+				pgd_alloc 分区一个全新的页全局目录, 如果PAE被激活, 还分配三个对应用户态线性地址的子页中间
+				pgd_free 释放页全局目录地址为pgd的项, 如果PAE被激活, 释放用户态线性地址对应的三个页中间目录
+				pud/pmd_alloc, pud/pmd_free
+				pte_alloc_map, pte_free 返回与addr对应的页表项地址, 如果页中间目录项为空,
+					则调用pte_alloc_one分配一个新页表, 如果分配一个新页表, addr对应的项被创建
+				pte_alloc_kernel, pte_free_kernel 主内核使用
+			物理内存布局
+				P84
