@@ -113,7 +113,7 @@
 				pdpt表项(2bit) + dir(页表9bit) + table (9bit)+ offset(12bit)
 			映射到2MB时
 				CR3 指向PDPT
-				pdpt表4项中的一个2bit) + dir(页表8bit) + offset(21bit)
+				pdpt表4项中的一个(2bit) + dir(页表8bit) + offset(21bit)
 		硬件高速缓存
 			73页(cache)
 		TLB
@@ -209,5 +209,50 @@
 				pte_alloc_map, pte_free 返回与addr对应的页表项地址, 如果页中间目录项为空,
 					则调用pte_alloc_one分配一个新页表, 如果分配一个新页表, addr对应的项被创建
 				pte_alloc_kernel, pte_free_kernel 主内核使用
-			物理内存布局
-				P84
+		物理内存布局
+			内核将下列页框记为保留
+				在不可用的物理地址范围内的页框
+				含有内核代码和已初始化的数据结构的页框
+			保留页框决不能动态分配或交换到磁盘上
+			内核一般安装在RAM中从物理地址0x00100000开始, 从第二个MB开始
+				页框0由bios使用, 存放加电自检等配置, 初始化后数据写到页框中
+				0x000a0000~0x000fffff通常留给bios例程, 并且映射ISA图形卡上的内部内存, IBM兼容PC上从640KB~1MB之间著名的洞
+				第一个MB内的其他页框可能由特定计算机模型保留, 如0xA0~0x9F页框给IBM THinkpnd使用
+			  启动过程的早期阶段, 询问BIOS并了解物理内存的大小, 内核调用BIOS过程建立一组物理地址范围及对应类型
+			随后执行machine_specific_memory_setup, 建立物理地址映射, 如果可获取则在BIOS基础上构建, 否则缺省构建
+			0x9F~0x100号所有页框标记为保留
+			128MB RAM配置
+				0x00000000~0x0009FFFF Usable	
+				0x000F0000~0x000FFFFF Reserved
+				0x00100000~0x07FEFFFF Usable
+				0x07FF0000~0x07FF2FFF ACPI data	存有加电自检阶段由BIOS写入的系统硬件设备信息
+				0x07FF3000~0x07FFFFFF ACPI NVS	映射到硬件ROM芯片
+				0xFFFF0000~0xFFFFFFFF Reserved	由硬件映射到BIOS的ROM芯片
+				0x000A0000~0x000EFFFF BIOS并不提供信息, Linux假定不可用
+			machine_specific_memory_setup --> setup_memory(分析物理内存区域, 并初始化一些变量描述内核的物理内存布局)
+				num_physpages	最高可用页框号
+				totalram_pages	可用页框总数量
+				min_low_pfn		RAM中在内核映像后第一个可用页框号
+				max_pfn			最后一个可用页框号
+				max_low_pfn		被内核直接映射的最后一个页框号(低地址内存)
+				totalhigh_pages	内核非直接映射的页框总数
+				highstart_pfn	内核非直接映射的第一个页框号
+				highend_pfn		内核非直接映射的最后一个页框号
+			内核符号
+				_text(内核代码开始)~_etext(内核代码结束位置, 初始化过数据)~_edata(未初始化数据)~_end
+				编译内核时产生, System.map找到符号的线性地址
+		进程页表
+			0x00000000~0xBFFFFFFF	内核态和用户态均可访问(进程运行在用户态时, 产生线性地址范围)
+			0xC0000000~0xFFFFFFFF	内核态访问(进程运行在内核态时, 产生线性地址范围)
+			PAGE_OFFSET值为0xC0000000, 进程在线性地址中的偏移量, 内核空间开始
+			页全局目录的第一部分页表项映射的线性地址小于PAGE_OFFSET(共1024项, PAE未启用时前768项, 启用后为前3项, 剩余的表项对所有进程相同)			
+		内核页表
+			1.对内核的数据结构进行管理
+			2.页表部分作为参考模型
+			临时页全局目录, 在内核编译过程中静态初始化, 由startup_32函数临时页表
+			  临时页全局目录放在swapper_pg_dir变量中, 临时页表在pg0变量处开始存放, 紧接着在_end后
+			内核代码段和数据段, 初始化页表和128KB内存范围能容纳于RAM前8MB, 需要用两个页表映射(2*1024*4K = 8MB(一个页表1024项))
+			第一阶段
+				允许在实模式和保护模式下都能容易访问8MB, 内核创建映射
+				0x00000000~0x007FFFFF 通过与物理地址相同的线性地址进行访问
+				0xC0000000~0xC07FFFFF --> 0x00000000~0x007FFFFF 通过0xC0000000~0xC07FFFFF线性地址进行访问
