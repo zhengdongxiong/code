@@ -402,14 +402,6 @@ root用户无法ssh连接
         修改为PermitRootLogin yes
         service sshd restart
 
-Linux之间互传文件
-    scp命令
-    scp local_file remote_username@remote_ip:remote_folder [-r(递归目录)]
-    scp remote_username@remote_ip:remote_folder local(本地目录)
-    
-Linux与Windows互传文件
-    利用FTP filezilla
-        SSH连接端口22
 ftp
     ftp IP/域名/user@域名
     ftp IP 端口
@@ -520,49 +512,6 @@ tftp
             lvresize : 调整大小
                 lvresize -L +/-size[b|k|m|g] lv_name
 
-查看pcie
-    lspci -n
-    09:00:slot.0 0c04: 1077:2432 (rev 03)
-    09:00.0:bus number(8bit 256):device number(5bit 32):slot(槽位).function(3bit 8)
-    Linux中用 Class ID + Vendor ID + Device ID
-        0c04:1077:2432
-    查看/usr/share/hwdata/pci.ids 得知0c04:1077:2432含义
-    lspci -n -d Vendor ID:Device ID -vvv
-    lspci -s 域:总线:插槽.功能
-
-查看i2c
-    /dev/i2c-X下对应编号查看/sys/class/i2c-dev/i2c-X/name
-    下载i2c-tool 
-    i2cdetect -l:显示所有可用的I2C总线
-    i2cdetect -y 总线号:查看总线下所有设备及设备地址
-            0 1 2 3 4 ... f
-        00:     -- -- --  UU(0x0f)
-        10:               UU(0x1f)
-    i2cdump -y -f 总线号 设备地址:导出设备地址数据
-    i2cset -y -f 总线号 设备地址 寄存器地址 写入数据:向寄存器写入数据
-    i2cget -y -f 总线号 设备地址 寄存器地址:从寄存器数据读出
-
-GPIO操作
-    echo (pin) > /sys/class/gpio/export:导出相应引脚
-    echo out > /sys/class/gpio/gpio(pin)/direction:设置引脚(pin)为输出方向
-    cat /sys/class/gpio/gpio(pin)/directio:查看对应方向
-    echo 1 > /sys/class/gpio/gpio(pin)/value:设置对应输出值
-    echo (pin) > /sys/class/gpio/unexport:取消导出
-    
-用户空间实例化i2c设备
-    创建设备
-        echo eeprom(设备名) 0x50(地址) > /sys/bus/i2c/devices/i2c-3(总线号)/new_device
-    删除设备
-        echo 0x50(地址) > /sys/bus/i2c/devices/i2c-3(总线号)/delete_device
-
-can工具
-    CAN2.0一帧最长8Bytes FD最长64Bytes
-    ifconfig can0 down(关闭才可以设置)
-    ip link set can0 type can bitrate 250000(250Kbps)
-    ifconfig can0 up
-    
-    ip link add type can help 查看帮助
-    
 docker
     安装docker
         apt-get install docker docker.io
