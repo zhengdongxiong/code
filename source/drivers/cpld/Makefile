@@ -1,5 +1,10 @@
 
-DEBUG = y
+DEBUG = n
+SW8180_UDEV = n
+
+ifeq ($(SW8180_UDEV), y)
+	EXTRA_CFLAGS += -DSW8180_UDEV
+endif
 
 ifeq ($(DEBUG),y)
     EXTRA_CFLAGS += -DDEBUG
