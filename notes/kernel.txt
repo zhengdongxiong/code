@@ -405,7 +405,69 @@
 			SET_LINKS和REMOV_LINK宏分别从进程链表中插入和删除一个进程描述符, 并考虑进程间父子关系
 			for_each_process() 扫描整个进程链表
 	TASK_RUNNING状态的进程链表
-		P108
+		当内核寻找一个新进程在CPU上运行时, 只考虑TASK_RUNNING状态的进程即可
+		  每种进程优先级对应一种链表, task_struct描述符包含一个list_head类型字段run_list, 如果进程优先级为K(共140优先级), 则放在优先级为k的可运行进程链表中
+		内核必须为每个运行队列保存大量的数据, 主要数据结构还是进程描述符, 所有链表都由一个单独的prio_array_t数据结构组成
+		struct prio_array_t
+			int nr_active 链表中进程描述符的数量
+			unsigned long[5] bitmap 优先级位图, 当且仅当某个优先级的进程链表不为空时设置对应的标志
+			struct list_head[140] queue 140个优先级队列的头结点
+		enqueue_task(p, array) 把进程描述符插入某个运行队列的链表
+		dequeue_task(p, array) 从运行队列的链表中删除一个进程描述符
+	进程描述符中描述亲属关系字段
+		real_parent 指向创建P的进程描述符, 如果p的父进程不存在, 则指向进程1(init)描述符
+		parent 指向p的当前父进程(这种进程的子进程终止时, 必须向父进程发信号), 通常与real_parent一致，当另一个进程发出监控p的ptrace不同
+		children 链表的头部, 链表中的所有元素都是p创建的子进程
+		sibling 指向兄弟进程链表中的下雨一个元素或前一个元素的指针, 这些兄弟进程的父进程都是p
+	进程描述符中描述非亲属关系的进程描述符
+		group_leader p所在进程组的领头进程的描述符指针
+		signal->pgrp p所在进程组的领头进程的PID
+		tgid p所在线程组队领头进程的PID
+		signal->session p的登录会话领头的PID
+		ptrace_children 链表头, 链表包所有被debugger程序跟踪的p的子进程
+		ptrace_list 指向所跟踪进程, 实际父进程链表的前一个和下一个元素
+	pidhash表和链表
+		加速查找pid, 引入4个散列表, 进程描述符包含了表示不同类型PID的字段
+		进程描述符中散列表的字段
+			PIDTYPE_PID 进程PID
+			PIDTYPE_TGID 线程组领头进程的PID
+			PIDTYPE_PGID 进程组领头的PID
+			PIDTYPE_SID 会话领头进程的PID
+		内核初始化期间, 动态为4个散列表分配空间, 并把他们的地址存入pid_hash数组, 一个系统拥有512MB的RAM, 那么散列表存在4个页框中, 可以拥有2048个表项
+		#define pid_hashfn(x) hash_long((unsigned long) x, pidhash_shift)
+			pidhash_shift 存放表的索引长度(以位为单位长度, 例如11)
+			pid_hashfn取值范围是0 ~ 2^11 - 1 = 2047
+			选取魔数常量0x9E370001 P112
+		hash冲突处理
+			利用链表处理冲突的PID, 每一个表项是由冲突的进程描述符组成的双向链表
+	进程描述符中PID结构字段
+		int nr pid的数值
+		struct hlist_node pid_chain 链接散列表的下一个和前一个元素
+		struct list_head pid_list 每个pid的进程链表头
+		例子(P113)
+			pid_hash[4] [1]为PIDTYPE_TGID 查找[1]找到TGID的hash表, 以第71项nr为4351和246进程为例
+				4351->pid_chain <--next/prev--> 246->pid_chain (散列表)
+				4351->pid_list <--next/prev--> 4351->pid_list <--next/prev--> 4351->pid_list (同一个线程组相同pid号)
+		PID散列表函数和宏
+			do_each_pid_task((nr, type, task)
+			while_each_pid_task(nr, type, task)
+					标记do-while循环的开始和结束, 循环作用在PID值等于nr的PID链表上, 链表的类型由参数type给出, task参数指向当前被
+				的元素的进程描述符
+			find_task_by_pid_type(type, nr)
+				在type类型的散列表中查找PID等于nr的进程, 函数返回所有匹配的进程描述符指针, 若没匹配则返回NULL
+			find_task_by_pid(nr)
+				find_task_by_pid_type(PIDTYPE_PID, nr)
+			attach_pid(task, type)
+					把task指向的进程描述符插入type类型的散列表中, 如果一个进程描述符已经在散列表中, 把task插入已有的PID进程链表中
+			detach_pid(task, type)
+				  从type类型的散列表中删除task所指向的进程描述符, 如果删除后PID进程链表没有变为空, 则函数终止, 
+				否则, 该函数还要从type类型的散列表中删除进程描述符, 最后, 如果PID的值没有出现在任何其他散列表中
+				为了这个值被反复利用, 必须清楚PID位图中的相应位
+			next_thread(task)
+				  返回PIDTYPE_TGID类型的散列表链表中task指示的下一个轻量级进程的进程描述符, 
+				由于散列表是循环的, 若应用于传统的进程, 那边该宏返回进程本身的描述符地址
+		如何组织进程
+			P115
 
 双向链表
 	对于每个链表, 必须实现一组原语操作: 初始化, 插入和删除一个元素, 扫描链表等
