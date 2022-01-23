@@ -466,8 +466,64 @@
 			next_thread(task)
 				  返回PIDTYPE_TGID类型的散列表链表中task指示的下一个轻量级进程的进程描述符, 
 				由于散列表是循环的, 若应用于传统的进程, 那边该宏返回进程本身的描述符地址
-		如何组织进程
-			P115
+	如何组织进程
+		运行队列链表把处于TASK_RUNNING状态的所有进程组织在一起, 当要把其它状态的进程分组时, 不同的状态要求不同的处理
+			没有为处于TASK_STOPPED, EXIT_ZOMBIE, EXIT_DEAD状态的进程建立专门的链表, 由于对处于暂停, 僵死, 死亡状态的
+		进程的访问比较简单, 或者通过PID, 或者通过特定的父进程的子进程链表, 所以不必对这三种状态的进程分组
+	等待队列
+			进程必须经常等待某些事件发生, 如等待磁盘操作终止, 等待资源释放, 或等待时间经过固定的间隔
+		希望等待特定事件的进程把自己放进合适的等待队列, 并放弃控制权, 因此, 等待队列表示一组睡眠进程
+		但某一条件变为真时, 由内核唤醒
+		双向链表实现, 元素包括指向进程描述符的指针, 每个等待队列都有一个等待队列头, 头类型为wait_queue_head_t数据结构
+		typedef struct __wait_queue_head {
+			spinlock_t lock;
+			struct list_head task_list;
+		}wait_queue_head_t;
+		typedef struct __wait_queue {
+			unsigned int flags;
+			strcut task_struct *task;
+			wait_queue_func_t func;
+			struct list_head task_list;
+		}wait_queue_t;
+		因为等待队列是由中断处理程序和主要内核函数修改, 因此必须对其双向链表进行保护
+		两种睡眠进程:
+			互斥进程(等待队列元素的flags字段为1)由内核有选择地唤醒, 等待访问临界资源
+			非互斥进程(flags字段为0)总是由内核在事件发生时唤醒, 等待相关事件
+		操作
+			DECLARE_WAIT_QUEUE_HEAD(name) 静态定义一个新等待队列的头, 并初始化lock和task_list
+			init_waitqueue_head(q, p) 动态初始化等待队列头, 非互斥进程p将由default_wake_function唤醒
+				q->flags = 0; q->task = ; q->func = default_wake_function;
+			DEFINE_WAIT() 建立等待队列项, 当前进程的描述符和唤醒函数autoremove_wake_function的地址初始化
+					autoremove_wake_function函数调用default_wake_function()唤醒睡眠进程, 从等待队列链表中
+				删除一个元素(每个等待队列链表中的一个元素其实是指向睡眠进程描述符指针), 最后通过
+				init_waitqueue_func_entry函数来自定义唤醒函数, 该函数辅助初始化等待队列的元素
+			add_wait_queue/_exclusive() 把一个非互斥进程插入等待队列链表的第一个位置/最后一个位置
+			remove_wait_queue() 从等待队列链表中删除一个进程
+			waitqueue_active() 检查一个给定的等待队列是否为空
+			sleep_on/_time() 对当前进程进行操作, 定义一个时间, 过了这个时间后, 由内核唤醒, 使用schedule_timout调度
+					把当前进程的状态设置为TASK_UNINTERRUPTIBLE, 并把它插入特定的等待队列, 当睡眠进程被唤醒时
+				把该进程从等待队列中删除
+			interruptible_sleep_on/_timeout() 对当前进程进行操作, 将状态设置为TASK_INTERRUPTIBLE
+			prepare_to_wait/_exclusive() finish_wait()
+					使当前进程在一个等待队列中睡眠, 用第三个参数设置进程状态, 把互斥标志设置, 并插入到wq的队列中
+					唤醒后后, 执行finish_wait()函数, 将状态设置为TASK_RUNNING, 并从等待队列中删除
+			wait_event/_interruptible() 使调用进程在等待队列上睡眠, 一直到修改给定条件为止
+				prepare_to_wait之后检查条件原因: 加入队列后检查条件是否满足, 如果不检查可能条件满足, 直接睡眠, 无法唤醒
+				sleep_on类函数在以下条件下不能使用, 那是必须测试条件并且当条件还没得到验证时,  
+			加入队列后, 如果不检查, 可能条件已经满足, 再去睡眠则后续无法唤醒
+				为了把一个互斥进程插入等待队列, 必须使用prepare_to_wait_exclusive或直接调用add_wait_queue_exclusive
+			所有其他的相关函数把进程当作非互斥进程来插入, 最后除非使用DEFINE_WAIT或finish_wait, 否则内核必须在唤醒后
+			从等待队列中删除对应的等待队列元素
+			wake_up/_nr/_all/_locked() wake_up_interruptible/_nr/_all/_sync()
+				1.所有宏唤醒具有请求状态的所有非互斥进程
+				2.所有宏考虑到处于所有状态的睡眠进程
+				3.名称含nr的宏唤醒给定数的具有请求状态的互斥进程, all唤醒所有进程, 不含字段唤醒一个互斥进程
+				4.不含sync宏, 检查被唤醒进程的优先级是否高于系统中正在运行进程的优先级, 必要时调用schedule()
+				5.含有locked宏, 当自旋锁已经被持有时调用wake_up_locked
+					wake_up函数list_for_each扫描等待队列中所有进程, 对每一项查找等待队列元素, 如果进程被有效唤醒
+				并且进程是互斥, 循环结束, 所有的互斥进程在链表的尾部, 所以总是先唤醒非互斥进程在唤醒互斥进程
+	进程资源限制
+		P119
 
 双向链表
 	对于每个链表, 必须实现一组原语操作: 初始化, 插入和删除一个元素, 扫描链表等

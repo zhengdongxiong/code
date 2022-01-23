@@ -289,6 +289,13 @@ sysfs系统
 		device_attribute}
 			show() store()分别用于读写(cat/echo)attribute对应sysfs文件
 		drivers/base/bus.c与/sys/bus/platform对应
+		
+	/sysfs层文件, 目录创建
+	设备/驱动/总线/类, 文件创建
+		device.h
+		device/driver/bus/class_create_file
+		device/driver/bus/class_remove_file
+	目录attribute_group, 如果存在name则创建目录
 	
 /proc/sys/printk
 	4 4 1 7
@@ -306,10 +313,6 @@ KERN_WARNING    KERN_SOH "4"    /* warning conditions */
 KERN_NOTICE KERN_SOH "5"    /* normal but significant condition */
 KERN_INFO   KERN_SOH "6"    /* informational */
 KERN_DEBUG  KERN_SOH "7"    /* debug-level messages */
-
-kzmalloc(带有清零标志)/kmalloc -- kree
-vmalloc -- vree 申请虚拟内存不一定连续
-readl,writel -- 往内存映射空间操作
 
 字符设备
 	应用层 --> 系统调用 --> VFS --> file_operations中 --> 设备
@@ -884,7 +887,7 @@ readl,writel -- 往内存映射空间操作
 		中断源
 			SGI：software generated interrupt
 			PPI：private peripheral interrupt,各个core私有的中断,只有对应cpu会响应
-　　        SPI：shared peripheral interrupt,共享外设中断,对于SPI类型的中断,默认都是在core0上产生的,设置绑定对应cpu
+	        SPI：shared peripheral interrupt,共享外设中断,对于SPI类型的中断,默认都是在core0上产生的,设置绑定对应cpu
 				irq_set_affinity( unsigned int irq, const struct cpumask *m );
 	
 		中断共享    
@@ -1505,35 +1508,35 @@ I2C
 					设置mac地址
 						ndo_set_mac_address
 				}
-				数据接收
-					中断方式
-						判断类型为接收中断,则读取接收数据,分配sk_buffer和数据缓冲区,将接接收到数据复制到数据缓冲区
-						调用netif_rx函数将sk_buffer传递给上层协议
-					NAPI兼容驱动(接收中断(关闭中断) --> 轮询方式接收数据包直到收空 --> 开启接收中断 ...)
-						通过poll方式接收数据包即netif_napi_add中的poll函数
-						初始化/移除/使能/禁止/检查是否可调度/轮询实例运行/完成一个NAP
-							netif_napi_add(struct net_device *, struct napi_struct *,
-										int (*poll)(struct napi_struct *, int), int)
-								初始化时候weight规定接收最多的budget数据包
-								通过net_if_receive_skb传递数据包到上层
-							netif_napi_del(struct napi_struct *)
-							napi_enable(struct napi_struct *)
-								open中调用
-							napi_disable(struct napi_struct *)
-								stop中调用
-							napi_schedule_prep(struct napi_struct *)
-							napi_schedule(struct napi_struct *)
-								首次接收数据包仍需中断触发,中断调用触发poll
-							napi_complete(struct napi_struct *)
-								一个轮询结束后使用
-						私有结构体中加入napi结构,方便找到私有结构体container_off
-					轮询
-				网络连接状态
-					改变设备的连接状态
-						netif_carrier_on(struct net_device *)
-						netif_carrier_off(struct net_device *)
-					采用定时器中断判断设备状态
-						进入中断读取相关寄存器获取状态
+			数据接收
+				中断方式
+					判断类型为接收中断,则读取接收数据,分配sk_buffer和数据缓冲区,将接接收到数据复制到数据缓冲区
+					调用netif_rx函数将sk_buffer传递给上层协议
+				NAPI兼容驱动(接收中断(关闭中断) --> 轮询方式接收数据包直到收空 --> 开启接收中断 ...)
+					通过poll方式接收数据包即netif_napi_add中的poll函数
+					初始化/移除/使能/禁止/检查是否可调度/轮询实例运行/完成一个NAP
+						netif_napi_add(struct net_device *, struct napi_struct *,
+									int (*poll)(struct napi_struct *, int), int)
+							初始化时候weight规定接收最多的budget数据包
+							通过net_if_receive_skb传递数据包到上层
+						netif_napi_del(struct napi_struct *)
+						napi_enable(struct napi_struct *)
+							open中调用
+						napi_disable(struct napi_struct *)
+							stop中调用
+						napi_schedule_prep(struct napi_struct *)
+						napi_schedule(struct napi_struct *)
+							首次接收数据包仍需中断触发,中断调用触发poll
+						napi_complete(struct napi_struct *)
+							一个轮询结束后使用
+					私有结构体中加入napi结构,方便找到私有结构体container_off
+				轮询
+			网络连接状态
+				改变设备的连接状态
+					netif_carrier_on(struct net_device *)
+					netif_carrier_off(struct net_device *)
+				采用定时器中断判断设备状态
+					进入中断读取相关寄存器获取状态
 		
 					
 		网络设备与媒介层
@@ -1790,17 +1793,17 @@ USB
 					5.USB主机控制器处理,进行一次到USB设备传输(USB控制器完成)
 					6.USB主机控制器驱动通知USB设备驱动
 						
-			探测与断开函数
-				probe
-					1.探测设备的端点地址,缓冲区大小,初始化任何可能用于控制USB设备的数据结构
-					2.已初始化的数据结构保存在接口设备中
-						usb_get_intfdata(struct usb_interface *)
-						usb_set_intfdata(struct usb_interface *, void *)
-					3.注册USB设备
-				disconnect
-					1.释放所有为设备分配的资源
-					2.设置接口设备的数据指针为NULL
-					3.注销USB设备
+		探测与断开函数
+			probe
+				1.探测设备的端点地址,缓冲区大小,初始化任何可能用于控制USB设备的数据结构
+				2.已初始化的数据结构保存在接口设备中
+					usb_get_intfdata(struct usb_interface *)
+					usb_set_intfdata(struct usb_interface *, void *)
+				3.注册USB设备
+			disconnect
+				1.释放所有为设备分配的资源
+				2.设置接口设备的数据指针为NULL
+				3.注销USB设备
 	参考
 		drivers/usb/usb-skeleton.c
 		drivers/hid/usbhid/usbkbd.c
@@ -1940,14 +1943,7 @@ USB
 			驱动获取
 				devm_clk_get(struct device *, const char *)
 					char *为上述的名称
-					
-/sysfs层文件, 目录创建
-	设备/驱动/总线/类, 文件创建
-		device.h
-		device/driver/bus/class_create_file
-		device/driver/bus/class_remove_file
-	目录attribute_group, 如果存在name则创建目录
-		
+						
 电源管理
 	CPU频率
 		核心层
