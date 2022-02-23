@@ -53,8 +53,6 @@
 #define SFP28_TX_DIS2_REG	0x22
 #define HS_SFP_RETIMER_MUX_REG	0x30
 
-
-
 /* 低速卡光模块在位寄存器 */
 #define LS_PHY_RST_REG		0x05
 #define SFP_PRESENT_REG		0x11
@@ -64,9 +62,6 @@
 #define SFP_TXFAULT_REG		0x16
 #define SFPP_TXFAULT_REG	0x17
 #define LS_SFP_RETIMER_MUX_REG	0x1B
-#define  DS100_VALUE		0x0D	/* 选通写入值, DS100后续出现0x20(RX) 0x21(TX) */
-#define  DS100_RX_ADDR		0x20	/* DS100需要配置器件的地址 */
-#define  REVERSE_NUM		2	/* DS100配置线序翻转两个寄存器 */
 #define SFP_TX_DIS_REG		0x31
 
 /* 电源板寄存器 */
@@ -390,6 +385,9 @@ static s32 retimer_config(const struct i2c_client *client, const uint8_t addr,
 #define DS250_REG_NUM		11	/* DS250中11个REG需要写 */
 #define DS250_TX_VALUE		0x25	/* 选通写入值, DS250后续出现0x18~0x20(TX) */
 #define DS250_RX_VALUE		0x26	/* 选通写入值, DS250后续出现0x18~0x20(RX) */
+#define DS100_VALUE		0x0D	/* 选通写入值, DS100后续出现0x20(RX) 0x21(TX) */
+#define DS100_RX_ADDR		0x20	/* DS100需要配置器件的地址 */
+#define REVERSE_NUM		2	/* DS100配置线序翻转两个寄存器 */
 
 
 const uint8_t ds250_addr[DS250_NUM] = { 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20 };
@@ -403,31 +401,31 @@ const uint8_t ds250_10g_reg[] = {
 
 /* 10G参数暂时未有, 暂时使用 */
 #define DS250_10G_VALUE(value_3d, value_3e, value_3f) \
-	0x03, 0x01, 0x0C, 0x00, 0x0B, 0x60, 0xE3, 0x00, value_3d, value_3e, value_3f
+	0x03, 0x01, 0x0C, 0x04, 0x0B, 0x60, 0xE3, 0x00, value_3d, value_3e, value_3f
 
 const uint8_t ds250_10g_tx[][DS250_REG_NUM] = {
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x18 [0] */
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x19 [1] */
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x1A [2] */
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x1B [3] */
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x1C [4] */
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x1D [5] */
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x1E [6] */
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x1F [7] */
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x20 [8] */
+	{ DS250_10G_VALUE(0x8D, 0x41, 0x43) }, /* 0x18 [0] */
+	{ DS250_10G_VALUE(0x8D, 0x41, 0x43) }, /* 0x19 [1] */
+	{ DS250_10G_VALUE(0x8D, 0x41, 0x43) }, /* 0x1A [2] */
+	{ DS250_10G_VALUE(0x8D, 0x41, 0x43) }, /* 0x1B [3] */
+	{ DS250_10G_VALUE(0x8D, 0x41, 0x43) }, /* 0x1C [4] */
+	{ DS250_10G_VALUE(0x8D, 0x41, 0x43) }, /* 0x1D [5] */
+	{ DS250_10G_VALUE(0x8D, 0x41, 0x43) }, /* 0x1E [6] */
+	{ DS250_10G_VALUE(0x8D, 0x41, 0x43) }, /* 0x1F [7] */
+	{ DS250_10G_VALUE(0x8D, 0x41, 0x43) }, /* 0x20 [8] */
 	{ /* END OF LIST */ } 
 };
 
 const uint8_t ds250_10g_rx[][DS250_REG_NUM] = {
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x18 [0] */
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x19 [1] */
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x1A [2] */
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x1B [3] */
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x1C [4] */
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x1D [5] */
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x1E [6] */
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x1F [7] */
-	{ DS250_10G_VALUE(0x9A, 0x45, 0x40) }, /* 0x20 [8] */
+	{ DS250_10G_VALUE(0x9A, 0x41, 0x40) }, /* 0x18 [0] */
+	{ DS250_10G_VALUE(0x9A, 0x41, 0x40) }, /* 0x19 [1] */
+	{ DS250_10G_VALUE(0x9A, 0x41, 0x40) }, /* 0x1A [2] */
+	{ DS250_10G_VALUE(0x9A, 0x41, 0x40) }, /* 0x1B [3] */
+	{ DS250_10G_VALUE(0x9A, 0x41, 0x40) }, /* 0x1C [4] */
+	{ DS250_10G_VALUE(0x9A, 0x41, 0x40) }, /* 0x1D [5] */
+	{ DS250_10G_VALUE(0x9A, 0x41, 0x40) }, /* 0x1E [6] */
+	{ DS250_10G_VALUE(0x9A, 0x41, 0x40) }, /* 0x1F [7] */
+	{ DS250_10G_VALUE(0x9A, 0x41, 0x40) }, /* 0x20 [8] */
 	{ /* END OF LIST */ }
 };
 
@@ -583,7 +581,6 @@ static ssize_t ds250_config_store(struct device *dev,
 		return -EINVAL;
 	}
 
-
 	addr = ds250_select_channel(tx_cfg, rx_cfg, port);
 
 	ret = ds250_speed(dev, addr, tx_cfg, rx_cfg);
@@ -659,15 +656,6 @@ ds250_25g_exit:
 	return ret;
 }
 
-#undef DS250_25G_VALUE
-#undef DS250_10G_VALUE
-#undef DS250_RX_VALUE
-#undef DS250_TX_VALUE
-#undef DS250_REG_NUM
-#undef DS250_NUM
-#undef DS250_MAX_PORT_NUM
-
-
 static ssize_t ds100_rx_reverse_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -697,6 +685,17 @@ rx_reverse_exit:
 	mutex_unlock(&data->lock);
 	return ret;
 }
+
+#undef DS250_25G_VALUE
+#undef DS250_10G_VALUE
+#undef REVERSE_NUM
+#undef DS100_RX_ADDR
+#undef DS100_VALUE
+#undef DS250_RX_VALUE
+#undef DS250_TX_VALUE
+#undef DS250_REG_NUM
+#undef DS250_NUM
+#undef DS250_MAX_PORT_NUM
 
 
 #ifdef SW8180_UDEV
@@ -1082,4 +1081,5 @@ module_i2c_driver(sw8180_driver);
 
 MODULE_DESCRIPTION("SW8180 I2C devices");
 MODULE_AUTHOR("");
+MODULE_VERSION("v1.1");
 MODULE_LICENSE("GPL");
