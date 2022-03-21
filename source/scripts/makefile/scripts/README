@@ -1,0 +1,21 @@
+
+
+2.文件编译
+	2.1 编译文件
+		example: 编译foo.c ==> foo
+			obj	+= foo.o
+	2.2 编译文件依赖多个文件
+		example: 编译 foo-1 foo-2 ==> foo
+			obj += foo.o
+			foo-objs := foo-1.o foo-2.o
+	2.3 文件编译选项
+		主Makefile中
+	
+	
+	
+
+
+
+
+
+

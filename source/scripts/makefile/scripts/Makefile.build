@@ -1,0 +1,46 @@
+
+PHONY := __build
+__build :
+
+
+include scripts/Makefile.lib
+
+
+
+__build : $(subdir) $(lib-obj) $(single-obj) $(multi-obj)
+
+
+$(dir)/%.o : $(src)/%.c
+	$(call cmd,cc)
+	
+$(dir)/% : $(src)/%.o
+	$(call cmd,cc_ld)
+	
+$(multi-obj):
+	$(call cmd,cc_ld_deps)
+
+$(dir)/lib%.o : $(lib) $(lib-deps)
+	$(call cmd,ld_deps)
+
+$(dir)/lib%.a : $(src)/lib%.o
+	$(call cmd,ar)
+	
+$(dir)/lib%.so : $(src)/lib%.o
+	$(call cmd,cc_libs)
+
+$(subdir):
+	@$(MAKE) $(build)=$@
+
+
+$(dir)/%.d : $(src)/%.c
+	$(call cmd,dep)
+sinclude $(obj-deps)
+
+
+
+.FORCE :
+.SECONDARY :
+
+PHONY += $(subdir) FORCE
+
+.PHONY: $(PHONY)

@@ -1,0 +1,20 @@
+
+PHONY := __clean
+__clean :
+
+
+include scripts/Makefile.lib
+
+
+
+__clean : $(subdir) 
+	$(call cmd,clean)
+
+$(subdir):
+	@$(MAKE) $(clean)=$@
+
+
+PHONY += $(subdir)
+
+.PHONY: $(PHONY)
+

@@ -381,29 +381,25 @@ static s32 retimer_config(const struct i2c_client *client, const uint8_t addr,
 }
 
 #define DS250_NUM		9	/* 高速卡9个DS250 */
-#define DS250_MAX_PORT_NUM	36	/* 高速卡36个port */
+#define HS_MAX_PORT_NUM		36	/* 高速卡36个port */
 #define DS250_REG_NUM		11	/* DS250中11个REG需要写 */
-#define DS250_TX_VALUE		0x25	/* 选通写入值, DS250后续出现0x18~0x20(TX) */
-#define DS250_RX_VALUE		0x26	/* 选通写入值, DS250后续出现0x18~0x20(RX) */
-#define DS100_VALUE		0x0D	/* 选通写入值, DS100后续出现0x20(RX) 0x21(TX) */
-#define DS100_RX_ADDR		0x20	/* DS100需要配置器件的地址 */
-#define REVERSE_NUM		2	/* DS100配置线序翻转两个寄存器 */
+#define DS250_TX_MUX		0x25	/* 选通写入值, DS250后续出现0x18~0x20(TX) */
+#define DS250_RX_MUX		0x26	/* 选通写入值, DS250后续出现0x18~0x20(RX) */
 
-
-const uint8_t ds250_addr[DS250_NUM] = { 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20 };
+static const uint8_t ds250_addr[DS250_NUM] = {
+	0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20
+};
 
 /* 0xFF, 0xFC 控制channel */
 /* 0x2F寄存器控制速率 bit[7:4], 25G = 0x50 10G = 0x00 */
-const uint8_t ds250_10g_reg[] = {
+static const uint8_t ds250_reg[DS250_REG_NUM] = {
 	0xFF, 0xFC, 0x0A, 0x2F, 0x1F, 0x31, 0x1E, 0x0A, 0x3D, 0x3E, 0x3F
 };
 
+#define DS250_10G_VALUE(val_3d, val_3e, val_3f) \
+	0x03, 0x01, 0x0C, 0x04, 0x0B, 0x60, 0xE3, 0x00, val_3d, val_3e, val_3f
 
-/* 10G参数暂时未有, 暂时使用 */
-#define DS250_10G_VALUE(value_3d, value_3e, value_3f) \
-	0x03, 0x01, 0x0C, 0x04, 0x0B, 0x60, 0xE3, 0x00, value_3d, value_3e, value_3f
-
-const uint8_t ds250_10g_tx[][DS250_REG_NUM] = {
+static const uint8_t ds250_10g_tx[][DS250_REG_NUM] = {
 	{ DS250_10G_VALUE(0x8D, 0x41, 0x43) }, /* 0x18 [0] */
 	{ DS250_10G_VALUE(0x8D, 0x41, 0x43) }, /* 0x19 [1] */
 	{ DS250_10G_VALUE(0x8D, 0x41, 0x43) }, /* 0x1A [2] */
@@ -416,7 +412,7 @@ const uint8_t ds250_10g_tx[][DS250_REG_NUM] = {
 	{ /* END OF LIST */ } 
 };
 
-const uint8_t ds250_10g_rx[][DS250_REG_NUM] = {
+static const uint8_t ds250_10g_rx[][DS250_REG_NUM] = {
 	{ DS250_10G_VALUE(0x9A, 0x41, 0x40) }, /* 0x18 [0] */
 	{ DS250_10G_VALUE(0x9A, 0x41, 0x40) }, /* 0x19 [1] */
 	{ DS250_10G_VALUE(0x9A, 0x41, 0x40) }, /* 0x1A [2] */
@@ -429,14 +425,10 @@ const uint8_t ds250_10g_rx[][DS250_REG_NUM] = {
 	{ /* END OF LIST */ }
 };
 
-const uint8_t ds250_25g_reg[DS250_REG_NUM] = {
-	0xFF, 0xFC, 0x0A, 0x2F, 0x1F, 0x31, 0x1E, 0x0A, 0x3D, 0x3E, 0x3F
-};
+#define DS250_25G_VALUE(val_3d, val_3e, val_3f) \
+	0x03, 0x01, 0x0C, 0x54, 0x0B, 0x60, 0xE3, 0x00, val_3d, val_3e, val_3f
 
-#define DS250_25G_VALUE(value_3d, value_3e, value_3f) \
-	0x03, 0x01, 0x0C, 0x54, 0x0B, 0x60, 0xE3, 0x00, value_3d, value_3e, value_3f
-
-const uint8_t ds250_25g_tx[][DS250_REG_NUM] = {
+static const uint8_t ds250_25g_tx[][DS250_REG_NUM] = {
 	{ DS250_25G_VALUE(0x97, 0x42, 0x45) }, /* 0x18 [0] */
 	{ DS250_25G_VALUE(0x95, 0x45, 0x44) }, /* 0x19 [1] */
 	{ DS250_25G_VALUE(0x95, 0x45, 0x43) }, /* 0x1A [2] */
@@ -449,7 +441,7 @@ const uint8_t ds250_25g_tx[][DS250_REG_NUM] = {
 	{ /* END OF LIST */ }
 };
 
-const uint8_t ds250_25g_rx[][DS250_REG_NUM] = {
+static const uint8_t ds250_25g_rx[][DS250_REG_NUM] = {
 	{ DS250_25G_VALUE(0x9A, 0x45, 0x40) }, /* 0x18 [0] */
 	{ DS250_25G_VALUE(0x9A, 0x45, 0x40) }, /* 0x19 [1] */
 	{ DS250_25G_VALUE(0x9A, 0x45, 0x40) }, /* 0x1A [2] */
@@ -492,25 +484,25 @@ static s32 ds250_speed(struct device *dev, uint8_t addr, uint8_t *tx_cfg, uint8_
 	mutex_lock(&data->lock);
 
 	/* TX 端配置 */
-	ret = i2c_smbus_write_word_data(client, HS_SFP_RETIMER_MUX_REG, DS250_TX_VALUE);
+	ret = i2c_smbus_write_word_data(client, HS_SFP_RETIMER_MUX_REG, DS250_TX_MUX);
 	if (ret) {
 		dev_warn(dev, "Set sfp_retimer_mux = 0x25 fail\n");
 		goto ds250_speed_exit;
 	}
 
-	ret = retimer_config(client, addr, ds250_25g_reg, tx_cfg, DS250_REG_NUM);
+	ret = retimer_config(client, addr, ds250_reg, tx_cfg, DS250_REG_NUM);
 	if (ret)
 		goto ds250_speed_exit;
 
 
 	/* RX 端配置 */
-	ret = i2c_smbus_write_word_data(client, HS_SFP_RETIMER_MUX_REG, DS250_RX_VALUE);
+	ret = i2c_smbus_write_word_data(client, HS_SFP_RETIMER_MUX_REG, DS250_RX_MUX);
 	if (ret) {
 		dev_warn(dev, "Set sfp_retimer_mux = 0x26 fail\n");
 		goto ds250_speed_exit;
 	}
 
-	ret = retimer_config(client, addr, ds250_25g_reg, rx_cfg, DS250_REG_NUM);
+	ret = retimer_config(client, addr, ds250_reg, rx_cfg, DS250_REG_NUM);
 	if (ret)
 		goto ds250_speed_exit;
 
@@ -566,7 +558,7 @@ static ssize_t ds250_config_store(struct device *dev,
 
 
 	ret = sscanf(buf, "%hhi %hhi", &port, &speed);
-	if (ret != 2 || port > DS250_MAX_PORT_NUM || !port)
+	if (ret != 2 || port > HS_MAX_PORT_NUM || !port)
 		return -EINVAL;
 
 
@@ -610,8 +602,7 @@ static ssize_t ds250_config_show(struct device *dev,
 			    data->port17_24, data->port25_32, data->port33_36);
 }
 
-
-static s32 ds250_25g_init(struct i2c_client * client)
+static int ds250_25g_init(struct i2c_client * client)
 {
 	struct sw8180_cpld *data = i2c_get_clientdata(client);
 	s32 ret = 0;
@@ -620,27 +611,27 @@ static s32 ds250_25g_init(struct i2c_client * client)
 	mutex_lock(&data->lock);
 
 	/* TX 端配置 */
-	ret = i2c_smbus_write_word_data(client, HS_SFP_RETIMER_MUX_REG, DS250_TX_VALUE);
+	ret = i2c_smbus_write_word_data(client, HS_SFP_RETIMER_MUX_REG, DS250_TX_MUX);
 	if (ret) {
 		dev_warn(&client->dev, "Set sfp_retimer_mux = 0x25 fail\n");
 		goto ds250_25g_exit;
 	}
 
 	for (i = 0; i < DS250_NUM; i++) {
-		ret = retimer_config(client, ds250_addr[i], ds250_25g_reg, ds250_25g_tx[i], DS250_REG_NUM);
+		ret = retimer_config(client, ds250_addr[i], ds250_reg, ds250_25g_tx[i], DS250_REG_NUM);
 		if (ret)
 			goto ds250_25g_exit;
 	}
 
 	/* RX 端配置 */
-	ret = i2c_smbus_write_word_data(client, HS_SFP_RETIMER_MUX_REG, DS250_RX_VALUE);
+	ret = i2c_smbus_write_word_data(client, HS_SFP_RETIMER_MUX_REG, DS250_RX_MUX);
 	if (ret) {
 		dev_warn(&client->dev, "Set sfp_retimer_mux = 0x26 fail\n");
 		goto ds250_25g_exit;
 	}
 
 	for (i = 0; i < DS250_NUM; i++) {
-		ret = retimer_config(client, ds250_addr[i], ds250_25g_reg, ds250_25g_rx[i], DS250_REG_NUM);
+		ret = retimer_config(client, ds250_addr[i], ds250_reg, ds250_25g_rx[i], DS250_REG_NUM);
 		if (ret)
 			goto ds250_25g_exit;
 	}
@@ -656,11 +647,75 @@ ds250_25g_exit:
 	return ret;
 }
 
-static ssize_t ds100_rx_reverse_store(struct device *dev,
+#undef DS250_25G_VALUE
+#undef DS250_10G_VALUE
+#undef DS250_RX_MUX
+#undef DS250_TX_MUX
+#undef DS250_REG_NUM
+#undef DS250_NUM
+#undef HS_MAX_PORT_NUM
+
+
+#define DS100_NUM		2	/* 低速卡2个DS100 */
+#define DS100_REG_NUM		14	/* DS100中14个REG需要写 */
+#define DS100_MUX		0x0D	/* 选通写入值, DS100后续出现0x20(RX) 0x21(TX) */
+#define DS100_TX_ADDR		0x21	/* DS100 STX */
+#define DS100_RX_ADDR		0x20	/* DS100 RX, 同时需要配置器件的地址 */
+#define REVERSE_NUM		2	/* DS100配置线序翻转两个寄存器 */
+
+
+static const uint8_t ds100_reg[DS100_REG_NUM] = {
+	0xFF, 0x31, 0x15, 0x2F, 0x36, 0x60, 0x61, 0x62, 0x63, 0x3A, 0x64, 0x0A, 0x0A, 0x2D
+};
+
+#define DS100_10G_VALUE(val_31, val_15, val_2d) \
+	0x0F, val_31, val_15, 0x04, 0x31, 0x00, 0xB2, 0x90, 0xB3, 0x00, 0xFF, 0x1C, 0x10, val_2d
+
+static const uint8_t ds100_10g_tx[DS100_REG_NUM] = {
+	DS100_10G_VALUE(0x40, 0x73, 0x82)
+};
+
+static const uint8_t ds100_10g_rx[DS100_REG_NUM] = {
+	DS100_10G_VALUE(0x20, 0x70, 0x86)
+};
+
+static int ds100_config(struct i2c_client *client)
+{
+	struct sw8180_cpld *data = i2c_get_clientdata(client);
+	s32 ret = 0;
+
+	mutex_lock(&data->lock);
+
+	ret = i2c_smbus_write_word_data(client, LS_SFP_RETIMER_MUX_REG, DS100_MUX);
+	if (ret) {
+		dev_warn(&client->dev, "Set sfp_retimer_mux = 0x0D fail\n");
+		goto ds100_config_exit;
+	}
+
+	/* TX 端配置 */
+	ret = retimer_config(client, DS100_TX_ADDR, ds100_reg, ds100_10g_tx, DS100_REG_NUM);
+	if (ret)
+		goto ds100_config_exit;
+
+	/* RX 端配置 */
+	ret = retimer_config(client, DS100_RX_ADDR, ds100_reg, ds100_10g_rx, DS100_REG_NUM);
+
+ds100_config_exit:
+	mutex_unlock(&data->lock);
+	return ret;
+}
+
+static ssize_t ds100_config_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct i2c_client * client = to_i2c_client(dev);
-	struct sw8180_cpld *data   = dev_get_drvdata(dev);
+
+	return ds100_config(client);
+}
+
+static int ds100_rx_reverse(struct i2c_client *client)
+{
+	struct sw8180_cpld *data = i2c_get_clientdata(client);
 	s32 ret = 0;
 
 	/* DS100 RX端翻转配置      */
@@ -669,33 +724,31 @@ static ssize_t ds100_rx_reverse_store(struct device *dev,
 
 	mutex_lock(&data->lock);
 
-	ret = i2c_smbus_write_word_data(client, LS_SFP_RETIMER_MUX_REG, DS100_VALUE);
+	ret = i2c_smbus_write_word_data(client, LS_SFP_RETIMER_MUX_REG, DS100_MUX);
 	if (ret) {
-		dev_warn(dev, "Set sfp_retimer_mux fail\n");
+		dev_warn(&client->dev, "Set sfp_retimer_mux = 0x0D fail\n");
 		goto rx_reverse_exit;
 	}
 
 	ret = retimer_config(client, DS100_RX_ADDR, reg, value, REVERSE_NUM);
-	if (ret)
-		goto rx_reverse_exit;
-
-	ret = count;
 	
 rx_reverse_exit:
 	mutex_unlock(&data->lock);
 	return ret;
 }
 
-#undef DS250_25G_VALUE
-#undef DS250_10G_VALUE
+static ssize_t ds100_rx_reverse_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+
+	return ds100_rx_reverse(client);
+}
 #undef REVERSE_NUM
 #undef DS100_RX_ADDR
-#undef DS100_VALUE
-#undef DS250_RX_VALUE
-#undef DS250_TX_VALUE
-#undef DS250_REG_NUM
-#undef DS250_NUM
-#undef DS250_MAX_PORT_NUM
+#undef DS100_TX_ADDR
+#undef DS100_REG_NUM
+#undef DS100_NUM
 
 
 #ifdef SW8180_UDEV
@@ -841,13 +894,8 @@ SW8180_SHOW_BYTE(sfp33_36_rxlos, SFPP_RXLOS_REG)
 SW8180_SHOW_BYTE(sfp25_32_txfault, SFP_TXFAULT_REG)
 SW8180_SHOW_BYTE(sfp33_36_txfault, SFPP_TXFAULT_REG)
 SW8180_RW_WORD(sfp33_36_txdisable, SFP_TX_DIS_REG)
+static DEVICE_ATTR_WO(ds100_config);
 static DEVICE_ATTR_WO(ds100_rx_reverse);
-
-/*
- * 添加DS100(低速卡上)
- *		rx_retimer 0x20
- *		tx_retimer 0x21
- */
 
 /* 电源板信息 和 无cpld线卡的phy复位 */
 SW8180_SHOW_BYTE(psu_power_good, PSU_POWER_GOOD_REG)
@@ -925,8 +973,8 @@ static struct attribute *ls_cpld_attrs[] = {
 	&dev_attr_sfp33_36_txfault.attr,
 	&dev_attr_sfp_retimer_mux.attr,
 	&dev_attr_sfp33_36_txdisable.attr,
+	&dev_attr_ds100_config.attr,
 	&dev_attr_ds100_rx_reverse.attr,
-	/* 补充retimer */
 	NULL
 };
 
@@ -1011,6 +1059,13 @@ static int sw8180_probe(struct i2c_client *client)
 		break;
 	case ls_cpld:
 		group = &ls_cpld_group;
+		ret = ds100_rx_reverse(client);
+		if (ret)
+			return ret;
+
+		ret = ds100_config(client);
+		if (ret)
+			return ret;
 		break;
 	case pio9535:
 		group = &pio9535_group;
@@ -1081,5 +1136,5 @@ module_i2c_driver(sw8180_driver);
 
 MODULE_DESCRIPTION("SW8180 I2C devices");
 MODULE_AUTHOR("");
-MODULE_VERSION("v1.1");
+MODULE_VERSION("v1.2");
 MODULE_LICENSE("GPL");
