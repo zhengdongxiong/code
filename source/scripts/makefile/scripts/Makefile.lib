@@ -2,15 +2,15 @@
 src := $(dir)
 
 
-subdir		:=
-obj		:=
-obj-deps	:=
-single-obj	:=
-multi-obj	:=
-lib-obj		:=
-lib		:=
-lib-deps	:=
-clean_file	:=
+subdir     :=
+obj        :=
+obj-deps   :=
+single-obj :=
+multi-obj  :=
+lib-obj    :=
+lib        :=
+lib-deps   :=
+clean_file :=
 
 
 # Include subdir Makefile
@@ -21,46 +21,46 @@ sinclude $(build-file)
 
 # Find obj
 # ---------------------------------------------------------------------------
-multi-obj	:= $(foreach m, $(obj), $(if $($(m:%.o=%)-objs), $(m))) 
-multi-obj-deps	:= $(foreach m, $(multi-obj), $($(m:%.o=%)-objs))
-single-obj	:= $(filter-out $(multi-obj), $(obj))
+multi-obj      := $(foreach m, $(obj), $(if $($(m:%.o=%)-objs), $(m)))
+multi-obj-deps := $(foreach m, $(multi-obj), $($(m:%.o=%)-objs))
+single-obj     := $(filter-out $(multi-obj), $(obj))
 
 
 # Sorting rules
 # ---------------------------------------------------------------------------
-subdir		:= $(patsubst %/, %, $(subdir))
-obj		:= $(single-obj) $(multi-obj-deps) $(lib)
-obj-deps	:= $(obj:%.o=%.d)
-single-obj	:= $(patsubst %.o, %, $(single-obj))
-multi-obj	:= $(patsubst %.o, %, $(multi-obj))
+subdir     := $(patsubst %/, %, $(subdir))
+obj        := $(single-obj) $(multi-obj-deps) $(lib)
+obj-deps   := $(obj:%.o=%.d)
+single-obj := $(patsubst %.o, %, $(single-obj))
+multi-obj  := $(patsubst %.o, %, $(multi-obj))
 
 ifneq ($(lib),)
-lib		:= $(lib)
-lib-obj		:= lib$(libname).o lib$(libname).a lib$(libname).so 
-lib-deps	:= $(foreach m, $(subdir), $(m)/lib$(libname).o)
+lib      := $(lib)
+lib-obj  := lib$(libname).o lib$(libname).a lib$(libname).so
+lib-deps := $(foreach m, $(subdir), $(m)/lib$(libname).o)
 endif
 
-clean-file	:= $(obj) $(obj-deps) $(single-obj) \
-			$(multi-obj) $(lib-obj)
+clean-file := $(obj) $(obj-deps) $(single-obj) \
+		$(multi-obj) $(lib-obj)
 
-define multi-dep
+define multi-deps
 $(foreach m, $1, \
 	$(eval $(dir)/$m: \
 	$(addprefix $(dir)/, $($(m)-objs))))
 endef
-$(call multi-dep, $(multi-obj))
+$(call multi-deps, $(multi-obj))
 
 # Add subdir path
 # ---------------------------------------------------------------------------
-subdir		:= $(addprefix $(dir)/, $(subdir))
-obj		:= $(addprefix $(dir)/, $(obj))
-obj-deps	:= $(addprefix $(dir)/, $(obj-deps))
-single-obj	:= $(addprefix $(dir)/, $(single-obj))
-multi-obj	:= $(addprefix $(dir)/, $(multi-obj))
-lib		:= $(addprefix $(dir)/, $(lib))
-lib-obj		:= $(addprefix $(dir)/, $(lib-obj))
-lib-deps	:= $(addprefix $(dir)/, $(lib-deps))
-clean-file	:= $(addprefix $(dir)/, $(clean-file))
+subdir     := $(addprefix $(dir)/, $(subdir))
+obj        := $(addprefix $(dir)/, $(obj))
+obj-deps   := $(addprefix $(dir)/, $(obj-deps))
+single-obj := $(addprefix $(dir)/, $(single-obj))
+multi-obj  := $(addprefix $(dir)/, $(multi-obj))
+lib        := $(addprefix $(dir)/, $(lib))
+lib-obj    := $(addprefix $(dir)/, $(lib-obj))
+lib-deps   := $(addprefix $(dir)/, $(lib-deps))
+clean-file := $(addprefix $(dir)/, $(clean-file))
 
 
 
@@ -71,36 +71,37 @@ cmd = @$(if $(cmd_$(1)), $(echo_cmd)$(cmd_$(1)))
 
 # Compile and assemble
 # ---------------------------------------------------------------------------
-echo_cc = CC	$@
+echo_cc = CC      $@
 cmd_cc = $(CC) $(CPPFLAGS) $(CPPFLAGS_$(@F)) \
 	$(CFLAGS) $(CFLAGS_$(@F)) -c $< -o $@
 
 # Linking
 # ---------------------------------------------------------------------------
-echo_cc_ld = LD	$@
+echo_cc_ld = LD      $@
 cmd_cc_ld = $(CC) $(LDFLAGS) $(LDFLAGS_$(@F)) $< \
 		$(LIBS) $(LIBS_$(@F)) -o $@
 
 # Linking multi file
 # ---------------------------------------------------------------------------
-echo_cc_ld_deps = LD	$@
+echo_cc_ld_deps = LD      $@
 cmd_cc_ld_deps = $(CC) $(LDFLAGS) $(LDFLAGS_$(@F)) $^ \
-		$(LIBS) $(LIBS_$(@F)) -o $@  #$(filter-out FORCE, $^) 
+		$(LIBS) $(LIBS_$(@F)) -o $@  #$(filter-out FORCE, $^)
 
 # Compile libs
 # ---------------------------------------------------------------------------
-echo_ld_deps = LD	$@
+echo_ld_deps = LD      $@
 cmd_ld_deps = $(LD) -r $^ -o $@  #$(filter-out FORCE, $^)
 
 # Archive
 # ---------------------------------------------------------------------------
-echo_ar = AR	$@
+echo_ar = AR      $@
 cmd_ar = $(AR) rcsPT $@ $^ #$(filter-out FORCE, $^)
 
 # Share library
 # ---------------------------------------------------------------------------
-echo_cc_libs = LIB	$@
-cmd_cc_libs = $(CC) -shared -o $@ $^ #$(filter-out FORCE, $^) 
+echo_cc_libs = LIB     $@
+cmd_cc_libs = $(CC) -shared $(lib-flags) $^ $(lib-libs) \
+		-o $@ #$(filter-out FORCE, $^)
 
 # Symbolic links
 # ---------------------------------------------------------------------------
@@ -109,12 +110,12 @@ cmd_ln =
 
 # Dependency
 # ---------------------------------------------------------------------------
-echo_dep = GEN	$@
+echo_dep = GEN     $@
 cmd_dep = $(CC) -MM $< > $@
 
 # Clean
 # ---------------------------------------------------------------------------
-echo_clean = CLEAN	$(src)
+echo_clean = CLEAN   $(src)
 cmd_clean = rm -rf $(clean-file)
 
 
