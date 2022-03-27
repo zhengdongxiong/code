@@ -6,40 +6,39 @@ __build :
 include scripts/Makefile.lib
 
 
-
-__build : $(subdir) $(lib-obj) $(single-obj) $(multi-obj)
-
+__build : $(subdir) $(curlib) $(arlib) $(shlib) $(single) $(multi)
+	@:
 
 $(dir)/%.o : $(src)/%.c
 	$(call cmd,cc)
 
-$(dir)/% : $(src)/%.o
-	$(call cmd,cc_ld)
+$(dir)/lib%.o : $(lib) $(sublib)
+	$(call cmd,lib_obj)
 
-$(multi-obj):
-	$(call cmd,cc_ld_deps)
-
-$(dir)/lib%.o : $(lib) $(lib-deps)
-	$(call cmd,ld_deps)
-
-$(dir)/lib%.a : $(src)/lib%.o
+$(dir)/%.a : $(src)/%.o
 	$(call cmd,ar)
 
-$(dir)/lib%.so : $(src)/lib%.o
-	$(call cmd,cc_libs)
+$(dir)/%.so : $(src)/%.o
+	$(call cmd,shlib)
 
-$(subdir):
-	@$(MAKE) $(build)=$@
+$(dir)/% : $(src)/%.o
+	$(call cmd,ld)
 
+$(multi) :
+	$(call cmd,ld_multi)
+$(call rule-multi, $(multi))
+
+$(subdir) :
+	$(Q)$(MAKE) $(build)=$@
 
 $(dir)/%.d : $(src)/%.c
-	$(call cmd,dep)
+	$(call cmd,deps)
 sinclude $(obj-deps)
-
 
 
 .FORCE :
 .SECONDARY :
+
 
 PHONY += $(subdir) FORCE
 

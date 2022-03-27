@@ -6,15 +6,17 @@ __clean :
 include scripts/Makefile.lib
 
 
+clean-files := $(obj) $(obj-deps) $(single) $(multi) \
+		$(lib) $(curlib) $(arlib) $(shlib)
+
 
 __clean : $(subdir)
 	$(call cmd,clean)
 
-$(subdir):
-	@$(MAKE) $(clean)=$@
+$(subdir) :
+	$(Q)$(MAKE) $(clean)=$@
 
 
 PHONY += $(subdir)
 
 .PHONY: $(PHONY)
-

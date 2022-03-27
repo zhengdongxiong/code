@@ -5,12 +5,13 @@ src := $(dir)
 subdir     :=
 obj        :=
 obj-deps   :=
-single-obj :=
-multi-obj  :=
-lib-obj    :=
+single     :=
+multi      :=
 lib        :=
-lib-deps   :=
-clean_file :=
+curlib     :=
+sublib     :=
+arlib      :=
+shlib      :=
 
 
 # Include subdir Makefile
@@ -19,55 +20,54 @@ build-dir  :=
 build-file := $(src)/Makefile
 sinclude $(build-file)
 
-# Find obj
-# ---------------------------------------------------------------------------
-multi-obj      := $(foreach m, $(obj), $(if $($(m:%.o=%)-objs), $(m)))
-multi-obj-deps := $(foreach m, $(multi-obj), $($(m:%.o=%)-objs))
-single-obj     := $(filter-out $(multi-obj), $(obj))
 
-
-# Sorting rules
+# Object variables
 # ---------------------------------------------------------------------------
-subdir     := $(patsubst %/, %, $(subdir))
-obj        := $(single-obj) $(multi-obj-deps) $(lib)
-obj-deps   := $(obj:%.o=%.d)
-single-obj := $(patsubst %.o, %, $(single-obj))
-multi-obj  := $(patsubst %.o, %, $(multi-obj))
+subdir := $(patsubst %/, %, $(subdir))
 
 ifneq ($(lib),)
-lib      := $(lib)
-lib-obj  := lib$(libname).o lib$(libname).a lib$(libname).so
-lib-deps := $(foreach m, $(subdir), $(m)/lib$(libname).o)
+lib    := $(lib)
+curlib := lib$(libname).o
+sublib := $(foreach m, $(subdir), $(m)/$(curlib))
+arlib  := lib$(libname).a
+shlib  := lib$(libname).so
 endif
 
-clean-file := $(obj) $(obj-deps) $(single-obj) \
-		$(multi-obj) $(lib-obj)
+multi    := $(foreach m, $(obj), $(if $($(m:%.o=%)-objs), $(m)))
+single   := $(filter-out $(multi), $(obj))
 
-define multi-deps
-$(foreach m, $1, \
+obj      := $(single) $(foreach m, $(multi), $($(m:%.o=%)-objs))
+obj-deps := $(obj:%.o=%.d)
+single   := $(patsubst %.o, %, $(single))
+multi    := $(patsubst %.o, %, $(multi))
+
+define rule-multi
+$(foreach m, $(notdir $1), \
 	$(eval $(dir)/$m: \
 	$(addprefix $(dir)/, $($(m)-objs))))
 endef
-$(call multi-deps, $(multi-obj))
+
 
 # Add subdir path
 # ---------------------------------------------------------------------------
 subdir     := $(addprefix $(dir)/, $(subdir))
 obj        := $(addprefix $(dir)/, $(obj))
 obj-deps   := $(addprefix $(dir)/, $(obj-deps))
-single-obj := $(addprefix $(dir)/, $(single-obj))
-multi-obj  := $(addprefix $(dir)/, $(multi-obj))
+single     := $(addprefix $(dir)/, $(single))
+multi      := $(addprefix $(dir)/, $(multi))
 lib        := $(addprefix $(dir)/, $(lib))
-lib-obj    := $(addprefix $(dir)/, $(lib-obj))
-lib-deps   := $(addprefix $(dir)/, $(lib-deps))
-clean-file := $(addprefix $(dir)/, $(clean-file))
-
+curlib     := $(addprefix $(dir)/, $(curlib))
+sublib     := $(addprefix $(dir)/, $(sublib))
+arlib      := $(addprefix $(dir)/, $(arlib))
+shlib      := $(addprefix $(dir)/, $(shlib))
 
 
 # CMD define
+#         echo_xxxx will be printed
+#         cmd_xxxx will be executed
 # ---------------------------------------------------------------------------
 echo_cmd = $(if $(echo_$(1)),echo "    $(echo_$(1))";)
-cmd = @$(if $(cmd_$(1)), $(echo_cmd)$(cmd_$(1)))
+cmd = $(Q)$(if $(cmd_$(1)), $(echo_cmd)$(cmd_$(1)))
 
 # Compile and assemble
 # ---------------------------------------------------------------------------
@@ -77,20 +77,20 @@ cmd_cc = $(CC) $(CPPFLAGS) $(CPPFLAGS_$(@F)) \
 
 # Linking
 # ---------------------------------------------------------------------------
-echo_cc_ld = LD      $@
-cmd_cc_ld = $(CC) $(LDFLAGS) $(LDFLAGS_$(@F)) $< \
+echo_ld = LD      $@
+cmd_ld = $(CC) $(LDFLAGS) $(LDFLAGS_$(@F)) $< \
 		$(LIBS) $(LIBS_$(@F)) -o $@
 
 # Linking multi file
 # ---------------------------------------------------------------------------
-echo_cc_ld_deps = LD      $@
-cmd_cc_ld_deps = $(CC) $(LDFLAGS) $(LDFLAGS_$(@F)) $^ \
+echo_ld_multi = LD      $@
+cmd_ld_multi = $(CC) $(LDFLAGS) $(LDFLAGS_$(@F)) $^ \
 		$(LIBS) $(LIBS_$(@F)) -o $@  #$(filter-out FORCE, $^)
 
 # Compile libs
 # ---------------------------------------------------------------------------
-echo_ld_deps = LD      $@
-cmd_ld_deps = $(LD) -r $^ -o $@  #$(filter-out FORCE, $^)
+echo_lib_obj = LD      $@
+cmd_lib_obj = $(LD) -r $^ -o $@  #$(filter-out FORCE, $^)
 
 # Archive
 # ---------------------------------------------------------------------------
@@ -99,28 +99,42 @@ cmd_ar = $(AR) rcsPT $@ $^ #$(filter-out FORCE, $^)
 
 # Share library
 # ---------------------------------------------------------------------------
-echo_cc_libs = LIB     $@
-cmd_cc_libs = $(CC) -shared $(lib-flags) $^ $(lib-libs) \
+echo_shlib = LLD     $@
+cmd_shlib = $(CC) -shared $(lib-flags) $^ $(lib-libs) \
 		-o $@ #$(filter-out FORCE, $^)
-
-# Symbolic links
-# ---------------------------------------------------------------------------
-echo_ln =
-cmd_ln =
 
 # Dependency
 # ---------------------------------------------------------------------------
-echo_dep = GEN     $@
-cmd_dep = $(CC) -MM $< > $@
+echo_deps = GEN     $@
+cmd_deps = $(CC) -MM $< > $@
 
 # Clean
 # ---------------------------------------------------------------------------
 echo_clean = CLEAN   $(src)
-cmd_clean = rm -rf $(clean-file)
+cmd_clean = rm -rf $(clean-files)
 
+# Install header
+# ---------------------------------------------------------------------------
+echo_hdrinst = INSTALL $(hdr_dir)
+cmd_hdrinst = mkdir -p $(inst_path); cp -r $(hdr_dir) $(inst_path)
 
+# Install header
+# ---------------------------------------------------------------------------
+echo_libinst = INSTALL $(lib_dir)
+cmd_libinst = mkdir -p $(inst-libdir); \
+	cp -r $(arlib) $(shlib) $(inst-libdir); \
+	mv $(link-lib) $(addprefix $(inst-libdir)/, $(shlib-ver)); \
+	ln -sf $(shlib-ver) $(link-lib)
 
-cmd_chmod = chmod +x $@
+# Install bin
+# ---------------------------------------------------------------------------
+echo_bininst = INSTALL $@
+cmd_bininst = mkdir -p $(inst_bindir); cp -r $@ $(inst_bindir)
+
+# Uninstall
+# ---------------------------------------------------------------------------
+echo_uninst = UNINST  $(uninst_path)
+cmd_uninst = rm -rf $(uninst_path)
 
 
 ###
@@ -135,7 +149,26 @@ build := -f scripts/Makefile.build dir
 # $(Q)$(MAKE) $(clean)=dir
 clean := -f scripts/Makefile.clean dir
 
+###
+# Shorthand for $(Q)$(MAKE) -f scripts/Makefile.hdrinst dir=
+# Usage:
+# $(Q)$(MAKE) $(inst)=dir
+hdrinst := -f scripts/Makefile.hdrinst dir
 
+###
+# Shorthand for $(Q)$(MAKE) -f scripts/Makefile.libinst dir=
+# Usage:
+# $(Q)$(MAKE) $(inst)=dir
+libinst := -f scripts/Makefile.libinst dir
 
+###
+# Shorthand for $(Q)$(MAKE) -f scripts/Makefile.bininst dir=
+# Usage:
+# $(Q)$(MAKE) $(inst)=dir
+bininst := -f scripts/Makefile.bininst dir dir=
 
-
+###
+# Shorthand for $(Q)$(MAKE) -f scripts/Makefile.uninst dir=
+# Usage:
+# $(Q)$(MAKE) $(inst)=dir
+uninst := -f scripts/Makefile.uninst dir

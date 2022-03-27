@@ -1,0 +1,13 @@
+
+PHONY := __hdrinst
+__hdrinst :
+
+
+include scripts/Makefile.lib
+
+
+__hdrinst :
+	$(call cmd,hdrinst)
+
+
+.PHONY: $(PHONY)

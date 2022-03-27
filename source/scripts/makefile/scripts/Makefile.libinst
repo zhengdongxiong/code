@@ -1,0 +1,18 @@
+
+PHONY := __libinst
+__libinst :
+
+
+include scripts/Makefile.lib
+
+
+inst-libdir := $(inst_path)/lib
+link-lib    := $(addprefix $(inst-libdir)/, $(notdir $(shlib)))
+shlib-ver   := $(addsuffix .$(version), $(notdir $(shlib)))
+
+
+__libinst :
+	$(call cmd,libinst)
+
+
+.PHONY: $(PHONY)

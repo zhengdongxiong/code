@@ -1,0 +1,25 @@
+
+PHONY := __bininst
+__bininst :
+
+
+include scripts/Makefile.lib
+
+
+inst_bindir := $(inst_path)/bin
+inst-bin    := $(single) $(multi)
+
+
+__bininst : $(subdir) $(inst-bin)
+	@:
+
+$(inst-bin) :
+	$(call cmd,bininst)
+
+$(subdir) :
+	$(Q)$(MAKE) $(bininst)=$@
+
+
+PHONY += $(subdir) $(inst-bin)
+
+.PHONY: $(PHONY)

@@ -1,0 +1,16 @@
+
+PHONY := __libinst
+__uninst :
+
+
+include scripts/Makefile.lib
+
+
+uninst_path := $(inst_path)
+
+
+__uninst :
+	$(call cmd,uninst)
+
+
+.PHONY: $(PHONY)
