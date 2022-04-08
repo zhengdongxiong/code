@@ -25,10 +25,10 @@ export libname version lib-flags lib-libs
 # ---------------------------------------------------------------------------
 hdr_dir   := include
 lib_dir   := lib
-tools_dir := tools
+bin_dir   := bin
 inst_path := install
 
-export hdr_dir lib_dir tools_dir inst_path
+export hdr_dir lib_dir bin_dir inst_path
 
 # Define Global Compiler and Compile opts
 # ---------------------------------------------------------------------------
@@ -49,11 +49,11 @@ include scripts/Makefile.lib
 
 # Make target
 # ---------------------------------------------------------------------------
-build_dir  := $(addprefix _build_, $(lib_dir) $(tools_dir))
-clean_dir  := $(addprefix _clean_, $(lib_dir) $(tools_dir))
+build_dir  := $(addprefix _build_, $(lib_dir) $(bin_dir))
+clean_dir  := $(addprefix _clean_, $(lib_dir) $(bin_dir))
 hdr_inst   := $(addprefix _hdrinst_, $(hdr_dir))
 lib_inst   := $(addprefix _libinst_, $(lib_dir))
-bin_inst   := $(addprefix _bininst_, $(tools_dir))
+bin_inst   := $(addprefix _bininst_, $(bin_dir))
 uninst_dir := $(addprefix _uninst_, $(inst_path))
 
 

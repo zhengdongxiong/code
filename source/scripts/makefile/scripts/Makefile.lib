@@ -165,7 +165,7 @@ libinst := -f scripts/Makefile.libinst dir
 # Shorthand for $(Q)$(MAKE) -f scripts/Makefile.bininst dir=
 # Usage:
 # $(Q)$(MAKE) $(inst)=dir
-bininst := -f scripts/Makefile.bininst dir dir=
+bininst := -f scripts/Makefile.bininst dir
 
 ###
 # Shorthand for $(Q)$(MAKE) -f scripts/Makefile.uninst dir=
