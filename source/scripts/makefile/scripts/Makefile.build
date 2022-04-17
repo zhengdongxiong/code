@@ -33,6 +33,7 @@ $(subdir) :
 
 $(dir)/%.d : $(src)/%.c
 	$(call cmd,deps)
+sinclude $(lib-deps)
 sinclude $(obj-deps)
 
 

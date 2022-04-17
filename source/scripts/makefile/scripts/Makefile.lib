@@ -8,6 +8,7 @@ obj-deps   :=
 single     :=
 multi      :=
 lib        :=
+lib-deps   :=
 curlib     :=
 sublib     :=
 arlib      :=
@@ -26,11 +27,12 @@ sinclude $(build-file)
 subdir := $(patsubst %/, %, $(subdir))
 
 ifneq ($(lib),)
-lib    := $(lib)
-curlib := lib$(libname).o
-sublib := $(foreach m, $(subdir), $(m)/$(curlib))
-arlib  := lib$(libname).a
-shlib  := lib$(libname).so
+lib      := $(lib)
+lib-deps := $(lib:%.o=%.d)
+curlib   := lib$(libname).o
+sublib   := $(foreach m, $(subdir), $(m)/$(curlib))
+arlib    := lib$(libname).a
+shlib    := lib$(libname).so
 endif
 
 multi    := $(foreach m, $(obj), $(if $($(m:%.o=%)-objs), $(m)))
@@ -56,6 +58,7 @@ obj-deps   := $(addprefix $(dir)/, $(obj-deps))
 single     := $(addprefix $(dir)/, $(single))
 multi      := $(addprefix $(dir)/, $(multi))
 lib        := $(addprefix $(dir)/, $(lib))
+lib-deps   := $(addprefix $(dir)/, $(lib-deps))
 curlib     := $(addprefix $(dir)/, $(curlib))
 sublib     := $(addprefix $(dir)/, $(sublib))
 arlib      := $(addprefix $(dir)/, $(arlib))
@@ -118,7 +121,7 @@ cmd_clean = rm -rf $(clean-files)
 echo_hdrinst = INSTALL $(hdr_dir)
 cmd_hdrinst = mkdir -p $(inst_path); cp -r $(hdr_dir) $(inst_path)
 
-# Install header
+# Install lib
 # ---------------------------------------------------------------------------
 echo_libinst = INSTALL $(lib_dir)
 cmd_libinst = mkdir -p $(inst-libdir); \

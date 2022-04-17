@@ -555,7 +555,7 @@
 			硬件上下文是进程可执行上下文的一个子集, 可执行上下文包含进程执行时需要的所有信息, 硬件上下文一部分存在TSS段中,
 			剩余存放在内核堆栈
 			  假定用prev局部变量表示切换出的进程描述符, next表示切换进的进程描述符, 保存prev硬件上下文, 用next硬件上下文替代prev
-			早起使用far jmp指令(既修改CS寄存器, 也修改eip寄存器, jmp只能修改eip寄存器)跳到next进程TSS描述符的选择符来执行进程切换,
+			使用far jmp指令(既修改CS寄存器, 也修改eip寄存器, jmp只能修改eip寄存器)跳到next进程TSS描述符的选择符来执行进程切换,
 			执行这条指令时, CPU通过自动保存原来的硬件上下文, 后续采用软件执行进程切换
 				1.通过一组mov指令逐步执行切换, 控制所装入数据的合法性, 检查ds和es段寄存器成为可能, 使用far jmp不进行检查
 				2.新旧两种方法时间大致相同, 然而尽管当前的切换代码还有改进的余地, 却不能对硬件上下文切换进行优化
@@ -603,7 +603,61 @@
 						pushl %ebp
 					3.把esp的内容保存到prev->thread.esp中是该字段指向prev内核栈的栈顶
 						movl %esp,484(%eax) /* 484(%eax)表示内存单元地址在eax内容上 + 484 */
-					4. P125
+					4.  把next->thread.esp装入esp, 此时切换至next的内核栈上,
+					  但ebp寄存器未修改, 还是prev进程, 所有局部变量均为prev进程中(局部变量根据ebp偏移索引)
+						movl 484(%eax), %esp
+					5.把标记为1的地址存入prev->thread.eip, 当被替换的进程重新恢复时, 执行标记为1的指令
+						movl $1f, 480(%eax)
+					6.把next->thrad.eip压入next的内核栈
+						pushl 480(%edx)
+					7.跳转__switch_to执行, jmp通过寄存器传递参数eax(prev), edx(next)
+						jmp __switch_to
+					8.再次切换回进程prev时, 执行标记为1的指令
+						1:
+							popl %ebp
+							popfl
+					9.拷贝eax寄存器的内容到switch_to宏的第三个参数last中
+						movl %eax, last
+				__switch_to函数
+					eax和edx分别保存prev和next, 利用__attribute__和regparm关键字强迫函数从寄存器取参数
+					__switch_to(struct task_struct *prev_p, struct task_struct *next_p) __attribute__(regparm(3));
+					1.执行由__unlazy_fpu宏产生的代码, 有选择地保存prev_p进程的FPU, MMX, XMM寄存器的内容
+						__unlazy_fpu(prev_p)
+					2.执行smp_processor_id宏获得当前CPU, 从当前进程的thread_info结构的cpu字段获得下标并保存到cpu局部变量中
+					3.  把next_p->thread.esp0装入对应于本地CPU的TSS的esp0字段, 以后任何由sysenter汇编指令产生user到kernel切换
+					  将把这个地址拷贝到esp寄存器中
+						init_tss[cpu].esp0 = next_p->thread.esp0
+					4.把next_p进程使用的线程局部存储(TLS)段装入本地CPU的全局描述符表, 三个段选择符在进程描述符的tls_array数组中
+						cpu_gdt_table[cpu][6] = next_p->thread.tls_array[0];
+						cpu_gdt_table[cpu][7] = next_p->thread.tls_array[1];
+						cpu_gdt_table[cpu][8] = next_p->thread.tls_array[2];
+					5.把fs和gs段寄存器的内容分别存放在prev_p->thread.fs和prev_p->thread.gs中
+						movl %fs, 40(%esi)
+						movl %gs, 44(%esi)
+					6.  如果fs或gs段寄存器已经被prev_p和next_p进程中任意一个使用, 则将next_p进程的thread_struct描述符中
+					  保存的值装入这些寄存器中, ebx寄存器指向next_p->thread结构, 实际代码更复杂, 当检测到一个无效
+					  的段寄存器值时, CPU可能产生一个异常, 采用一种"修正"途径考虑这种情况
+						movl 40(%ebx), %fs
+						movl 44(%ebx), %gs
+
+
+				#define switch_to(prev,next,last) do {     \
+						unsigned long esi,edi;      \
+						asm volatile("pushfl\n\t"  /* Save flags */ \
+						"pushl %%ebp\n\t"     \
+						"movl %%esp,%0\n\t" /* save ESP */  \
+						"movl %5,%%esp\n\t" /* restore ESP */ \
+						"movl $1f,%1\n\t"  /* save EIP */  \
+						"pushl %6\n\t"  /* restore EIP */ \
+						"jmp __switch_to\n"    \
+						"1:\t"      \
+						"popl %%ebp\n\t"     \
+						"popfl"      \
+						:"=m" (prev->thread.esp),"=m" (prev->thread.eip), \
+						"=a" (last),"=S" (esi),"=D" (edi)   \
+						:"m" (next->thread.esp),"m" (next->thread.eip), \
+						"2" (prev), "d" (next));    \
+				} while (0)
 
 双向链表
 	对于每个链表, 必须实现一组原语操作: 初始化, 插入和删除一个元素, 扫描链表等
