@@ -6,7 +6,12 @@ __uninst :
 include scripts/Makefile.lib
 
 
+# Uninstall
+# ---------------------------------------------------------------------------
 uninst_path := $(inst_path)
+
+echo_uninst = UNINST  $(uninst_path)
+cmd_uninst = rm -rf $(uninst_path)
 
 
 __uninst :

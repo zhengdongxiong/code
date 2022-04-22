@@ -43,12 +43,6 @@ obj-deps := $(obj:%.o=%.d)
 single   := $(patsubst %.o, %, $(single))
 multi    := $(patsubst %.o, %, $(multi))
 
-define rule-multi
-$(foreach m, $(notdir $1), \
-	$(eval $(dir)/$m: \
-	$(addprefix $(dir)/, $($(m)-objs))))
-endef
-
 
 # Add subdir path
 # ---------------------------------------------------------------------------
@@ -71,73 +65,6 @@ shlib      := $(addprefix $(dir)/, $(shlib))
 # ---------------------------------------------------------------------------
 echo_cmd = $(if $(echo_$(1)),echo "    $(echo_$(1))";)
 cmd = $(Q)$(if $(cmd_$(1)), $(echo_cmd)$(cmd_$(1)))
-
-# Compile and assemble
-# ---------------------------------------------------------------------------
-echo_cc = CC      $@
-cmd_cc = $(CC) $(CPPFLAGS) $(CPPFLAGS_$(@F)) \
-	$(CFLAGS) $(CFLAGS_$(@F)) -c $< -o $@
-
-# Linking
-# ---------------------------------------------------------------------------
-echo_ld = LD      $@
-cmd_ld = $(CC) $(LDFLAGS) $(LDFLAGS_$(@F)) $< \
-		$(LIBS) $(LIBS_$(@F)) -o $@
-
-# Linking multi file
-# ---------------------------------------------------------------------------
-echo_ld_multi = LD      $@
-cmd_ld_multi = $(CC) $(LDFLAGS) $(LDFLAGS_$(@F)) $^ \
-		$(LIBS) $(LIBS_$(@F)) -o $@  #$(filter-out FORCE, $^)
-
-# Compile libs
-# ---------------------------------------------------------------------------
-echo_lib_obj = LD      $@
-cmd_lib_obj = $(LD) -r $^ -o $@  #$(filter-out FORCE, $^)
-
-# Archive
-# ---------------------------------------------------------------------------
-echo_ar = AR      $@
-cmd_ar = $(AR) rcsPT $@ $^ #$(filter-out FORCE, $^)
-
-# Share library
-# ---------------------------------------------------------------------------
-echo_shlib = LLD     $@
-cmd_shlib = $(CC) -shared $(lib-flags) $^ $(lib-libs) \
-		-o $@ #$(filter-out FORCE, $^)
-
-# Dependency
-# ---------------------------------------------------------------------------
-echo_deps = GEN     $@
-cmd_deps = $(CC) -MM $< > $@
-
-# Clean
-# ---------------------------------------------------------------------------
-echo_clean = CLEAN   $(src)
-cmd_clean = rm -rf $(clean-files)
-
-# Install header
-# ---------------------------------------------------------------------------
-echo_hdrinst = INSTALL $(hdr_dir)
-cmd_hdrinst = mkdir -p $(inst_path); cp -r $(hdr_dir) $(inst_path)
-
-# Install lib
-# ---------------------------------------------------------------------------
-echo_libinst = INSTALL $(lib_dir)
-cmd_libinst = mkdir -p $(inst-libdir); \
-	cp -r $(arlib) $(shlib) $(inst-libdir); \
-	mv $(link-lib) $(addprefix $(inst-libdir)/, $(shlib-ver)); \
-	ln -sf $(shlib-ver) $(link-lib)
-
-# Install bin
-# ---------------------------------------------------------------------------
-echo_bininst = INSTALL $@
-cmd_bininst = mkdir -p $(inst_bindir); cp -r $@ $(inst_bindir)
-
-# Uninstall
-# ---------------------------------------------------------------------------
-echo_uninst = UNINST  $(uninst_path)
-cmd_uninst = rm -rf $(uninst_path)
 
 
 ###

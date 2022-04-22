@@ -6,6 +6,52 @@ __build :
 include scripts/Makefile.lib
 
 
+# Compile and assemble
+# ---------------------------------------------------------------------------
+echo_cc = CC      $@
+cmd_cc = $(CC) $(CPPFLAGS) $(CPPFLAGS_$(@F)) \
+	$(CFLAGS) $(CFLAGS_$(@F)) -c $< -o $@
+
+# Linking
+# ---------------------------------------------------------------------------
+echo_ld = LD      $@
+cmd_ld = $(CC) $(LDFLAGS) $(LDFLAGS_$(@F)) $< \
+		$(LIBS) $(LIBS_$(@F)) -o $@
+
+# Linking multi file
+# ---------------------------------------------------------------------------
+echo_ld_multi = LD      $@
+cmd_ld_multi = $(CC) $(LDFLAGS) $(LDFLAGS_$(@F)) $^ \
+		$(LIBS) $(LIBS_$(@F)) -o $@  #$(filter-out FORCE, $^)
+
+define rule-multi
+$(foreach m, $(notdir $1), \
+	$(eval $(dir)/$m: \
+	$(addprefix $(dir)/, $($(m)-objs))))
+endef
+
+# Compile libs
+# ---------------------------------------------------------------------------
+echo_lib_obj = LD      $@
+cmd_lib_obj = $(LD) -r $^ -o $@  #$(filter-out FORCE, $^)
+
+# Archive
+# ---------------------------------------------------------------------------
+echo_ar = AR      $@
+cmd_ar = $(AR) rcsPT $@ $^ #$(filter-out FORCE, $^)
+
+# Share library
+# ---------------------------------------------------------------------------
+echo_shlib = LLD     $@
+cmd_shlib = $(CC) -shared $(lib-flags) $^ $(lib-libs) \
+		-o $@ #$(filter-out FORCE, $^)
+
+# Dependency
+# ---------------------------------------------------------------------------
+echo_deps = GEN     $@
+cmd_deps = $(CC) -MM $< > $@
+
+
 __build : $(subdir) $(curlib) $(arlib) $(shlib) $(single) $(multi)
 	@:
 
