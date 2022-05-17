@@ -4,4 +4,4 @@
 
 lib	+= hello100.o
 
-subdir	+= sub/
+subdir	+= sub

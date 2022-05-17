@@ -10,9 +10,7 @@
 			foo-objs := foo-1.o foo-2.o
 	2.3 文件编译选项
 		主Makefile中
-	
-	
-	
+
 
 
 

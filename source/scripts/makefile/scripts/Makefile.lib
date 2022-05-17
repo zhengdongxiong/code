@@ -24,7 +24,7 @@ sinclude $(build-file)
 
 # Object variables
 # ---------------------------------------------------------------------------
-subdir := $(patsubst %/, %, $(subdir))
+#subdir := $(patsubst %/, %, $(subdir))
 
 ifneq ($(lib),)
 lib      := $(lib)
