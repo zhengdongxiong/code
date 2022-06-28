@@ -8,15 +8,15 @@ include scripts/Makefile.lib
 
 # Install lib
 # ---------------------------------------------------------------------------
-inst-libdir := $(inst_path)/lib
-link-lib    := $(addprefix $(inst-libdir)/, $(notdir $(shlib)))
-shlib-ver   := $(addsuffix .$(version), $(notdir $(shlib)))
+inst_libdir := $(inst_path)/lib
+link_lib    := $(addprefix $(inst_libdir)/, $(notdir $(shlib)))
+shlib_ver   := $(addsuffix .$(version), $(notdir $(shlib)))
 
 echo_libinst = INSTALL $(lib_dir)
-cmd_libinst = mkdir -p $(inst-libdir); \
-	cp -r $(arlib) $(shlib) $(inst-libdir); \
-	mv $(link-lib) $(addprefix $(inst-libdir)/, $(shlib-ver)); \
-	ln -sf $(shlib-ver) $(link-lib)
+cmd_libinst = mkdir -p $(inst_libdir); \
+	cp -r $(arlib) $(shlib) $(inst_libdir); \
+	mv $(link_lib) $(addprefix $(inst_libdir)/, $(shlib_ver)); \
+	ln -sf $(shlib_ver) $(link_lib)
 
 
 __libinst :

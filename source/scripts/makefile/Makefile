@@ -15,10 +15,10 @@ export Q
 # ---------------------------------------------------------------------------
 libname   := pa8910
 version   := 0.0.1
-lib-flags :=
-lib-libs  :=
+shlib_flags :=
+shlib_libs  :=
 
-export libname version lib-flags lib-libs
+export libname version shlib_flags shlib_libs
 
 
 # All subdir

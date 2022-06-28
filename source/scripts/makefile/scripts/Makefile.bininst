@@ -9,22 +9,22 @@ include scripts/Makefile.lib
 # Install bin
 # ---------------------------------------------------------------------------
 inst_bindir := $(inst_path)/bin
-inst-bin    := $(single) $(multi)
+inst_bin    := $(single) $(multi)
 
 echo_bininst = INSTALL $@
 cmd_bininst = mkdir -p $(inst_bindir); cp -r $@ $(inst_bindir)
 
 
-__bininst : $(subdir) $(inst-bin)
+__bininst : $(subdir) $(inst_bin)
 	@:
 
-$(inst-bin) :
+$(inst_bin) :
 	$(call cmd,bininst)
 
 $(subdir) :
 	$(Q)$(MAKE) $(bininst)=$@
 
 
-PHONY += $(subdir) $(inst-bin)
+PHONY += $(subdir) $(inst_bin)
 
 .PHONY: $(PHONY)

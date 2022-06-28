@@ -8,11 +8,11 @@ include scripts/Makefile.lib
 
 # Clean
 # ---------------------------------------------------------------------------
-clean-files := $(obj) $(obj-deps) $(single) $(multi) \
+clean_files := $(obj) $(obj-deps) $(single) $(multi) \
 		$(lib) $(lib-deps) $(curlib) $(arlib) $(shlib)
 
 echo_clean = CLEAN   $(src)
-cmd_clean = rm -rf $(clean-files)
+cmd_clean = rm -rf $(clean_files)
 
 
 __clean : $(subdir)

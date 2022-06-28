@@ -43,7 +43,7 @@ cmd_ar = $(AR) rcsPT $@ $^ #$(filter-out FORCE, $^)
 # Share library
 # ---------------------------------------------------------------------------
 echo_shlib = LLD     $@
-cmd_shlib = $(CC) -shared $(lib-flags) $^ $(lib-libs) \
+cmd_shlib = $(CC) -shared $(shlib_flags) $^ $(shlib_libs) \
 		-o $@ #$(filter-out FORCE, $^)
 
 # Dependency

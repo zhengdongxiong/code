@@ -618,27 +618,52 @@
 							popfl
 					9.拷贝eax寄存器的内容到switch_to宏的第三个参数last中
 						movl %eax, last
-				__switch_to函数
-					eax和edx分别保存prev和next, 利用__attribute__和regparm关键字强迫函数从寄存器取参数
-					__switch_to(struct task_struct *prev_p, struct task_struct *next_p) __attribute__(regparm(3));
-					1.执行由__unlazy_fpu宏产生的代码, 有选择地保存prev_p进程的FPU, MMX, XMM寄存器的内容
-						__unlazy_fpu(prev_p)
-					2.执行smp_processor_id宏获得当前CPU, 从当前进程的thread_info结构的cpu字段获得下标并保存到cpu局部变量中
-					3.  把next_p->thread.esp0装入对应于本地CPU的TSS的esp0字段, 以后任何由sysenter汇编指令产生user到kernel切换
-					  将把这个地址拷贝到esp寄存器中
-						init_tss[cpu].esp0 = next_p->thread.esp0
-					4.把next_p进程使用的线程局部存储(TLS)段装入本地CPU的全局描述符表, 三个段选择符在进程描述符的tls_array数组中
-						cpu_gdt_table[cpu][6] = next_p->thread.tls_array[0];
-						cpu_gdt_table[cpu][7] = next_p->thread.tls_array[1];
-						cpu_gdt_table[cpu][8] = next_p->thread.tls_array[2];
-					5.把fs和gs段寄存器的内容分别存放在prev_p->thread.fs和prev_p->thread.gs中
-						movl %fs, 40(%esi)
-						movl %gs, 44(%esi)
-					6.  如果fs或gs段寄存器已经被prev_p和next_p进程中任意一个使用, 则将next_p进程的thread_struct描述符中
-					  保存的值装入这些寄存器中, ebx寄存器指向next_p->thread结构, 实际代码更复杂, 当检测到一个无效
-					  的段寄存器值时, CPU可能产生一个异常, 采用一种"修正"途径考虑这种情况
-						movl 40(%ebx), %fs
-						movl 44(%ebx), %gs
+
+			__switch_to函数
+				eax和edx分别保存prev和next, 利用__attribute__和regparm关键字强迫函数从寄存器取参数
+				__switch_to(struct task_struct *prev_p, struct task_struct *next_p) __attribute__(regparm(3));
+				1.执行由__unlazy_fpu宏产生的代码, 有选择地保存prev_p进程的FPU, MMX, XMM寄存器的内容
+					__unlazy_fpu(prev_p)
+				2.执行smp_processor_id宏获得当前CPU, 从当前进程的thread_info结构的cpu字段获得下标并保存到cpu局部变量中
+				3.  把next_p->thread.esp0装入对应于本地CPU的TSS的esp0字段, 以后任何由sysenter汇编指令产生user到kernel切换
+				  将把这个地址拷贝到esp寄存器中
+					init_tss[cpu].esp0 = next_p->thread.esp0
+				4.把next_p进程使用的线程局部存储(TLS)段装入本地CPU的全局描述符表, 三个段选择符在进程描述符的tls_array数组中
+					cpu_gdt_table[cpu][6] = next_p->thread.tls_array[0];
+					cpu_gdt_table[cpu][7] = next_p->thread.tls_array[1];
+					cpu_gdt_table[cpu][8] = next_p->thread.tls_array[2];
+				5.把fs和gs段寄存器的内容分别存放在prev_p->thread.fs和prev_p->thread.gs中
+					movl %fs, 40(%esi)
+					movl %gs, 44(%esi)
+				6.  如果fs或gs段寄存器已经被prev_p和next_p进程中任意一个使用, 则将next_p进程的thread_struct描述符中
+				  保存的值装入这些寄存器中, ebx寄存器指向next_p->thread结构, 实际代码更复杂, 当检测到一个无效
+				  的段寄存器值时, CPU可能产生一个异常, 采用一种"修正"途径考虑这种情况
+					movl 40(%ebx), %fs
+					movl 44(%ebx), %gs
+				7.  用next_p->thread.debugreg数组的内容装载dr0 ... dr7的6个调试寄存器, 只有在next_p被挂起时才真正使用
+				  调试寄存器(next_p->thread.debugreg[7] != 0), 这种操作才能进行, 只有当一个调试器想要监控prev时prev_p->
+				  thead.debugreg才会被修改
+				8.  如果必要, 更新TSS中的I/O位图, 当next_p/prev_p有其自己定制I/O权限位图时必须这么做, 因为进程很少修改I/O权限位图
+				  所以该位图在懒模式中被处理, 当且仅当一个进程在当前时间片内实际访问I/O端口时, 真实位图才被拷贝到本地CPU的TSS, 进程
+				  的定制I/O权限位图被保存在thread_info结构的io_bitmap_ptr字段指向的缓冲区中, handle_io_bitmap函数为next_p进程设置
+				  本地CPU使用的TSS的io_bitmap字段如下
+					*.如果next_p进程不拥有字段I/O权限位图, 则TSS的io_bitmap字段被设为0x8000
+					*.如果next_p进程拥有自己的I/O权限位图, 则TSS的io_bitmap字段被设为0x9000
+					则TSS的io_bitmap字段应当包含一个在TSS中的便宜点, 其中存放实际位图, 无论何时用户态进程试图访问一个I/O端口, 0x8000
+				  和0x9000指向TSS界限之外并将因此引起"General protection"异常, do_general_protection()异常处理程序将检查保存在io_bitmap
+				  字段的值, 如果是0x8000函数发送一个SIGSEGV信号给用户态进程, 如果是0x9000函数把进程位图(thread_info结构中的io_bitmap_ptr)
+				  拷贝到本地CPU的TSS中, 把io_bitmap字段设为实际位图的偏移, 并强制再一次执行有缺陷的汇编指令
+
+					if (prev_p->thread.io_bitmap_ptr || next_p->thread.io_bitmap_ptr)
+						handle_io_bitmap(&next_p->thead, &init_tss[cpu]);
+				9.终止__switch_to
+					prev_p参数(在edi中)被拷贝到eax, 在缺省情况下任何C语言返回值被传递到eax中, eax的值因此在调用__switch_to
+				  的过程中被保护起来, 因为调用switch_to宏假定eax总是用来存放被替换的进程描述符地址, 汇编ret指令把栈顶保存的
+				  返回地址装入eip程序计数器, ret指令在栈中找到标号为1的指令地址, 如果next_p第一次执行而以前从未被挂起, 就会找到
+				  ret_frim_fork()函数的起始地址
+
+					movl %edi,%eax /* return prev_p) */
+					ret
 
 
 				#define switch_to(prev,next,last) do {     \
@@ -658,6 +683,8 @@
 						:"m" (next->thread.esp),"m" (next->thread.eip), \
 						"2" (prev), "d" (next));    \
 				} while (0)
+
+		P129
 
 双向链表
 	对于每个链表, 必须实现一组原语操作: 初始化, 插入和删除一个元素, 扫描链表等
