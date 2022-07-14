@@ -1,9 +1,9 @@
 
-PHONY := __libinst
+PHONY := __uninst
 __uninst :
 
 
-include scripts/Makefile.lib
+include scripts/Makefile.include
 
 
 # Uninstall

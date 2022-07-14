@@ -2,17 +2,17 @@
 src := $(dir)
 
 
-subdir     :=
-obj        :=
-obj-deps   :=
-single     :=
-multi      :=
-lib        :=
-lib-deps   :=
-curlib     :=
-sublib     :=
-arlib      :=
-shlib      :=
+subdir   :=
+obj      :=
+obj_deps :=
+single   :=
+multi    :=
+lib      :=
+lib_deps :=
+curlib   :=
+sublib   :=
+arlib    :=
+shlib    :=
 
 
 # Include subdir Makefile
@@ -28,42 +28,44 @@ sinclude $(build-file)
 
 ifneq ($(lib),)
 lib      := $(lib)
-lib-deps := $(lib:%.o=%.d)
+lib_deps := $(lib:%.o=%.d)
 curlib   := lib$(libname).o
 sublib   := $(foreach m, $(subdir), $(m)/$(curlib))
+ifeq ($(src),$(lib_dir))
 arlib    := lib$(libname).a
 shlib    := lib$(libname).so
+endif
 endif
 
 multi    := $(foreach m, $(obj), $(if $($(m:%.o=%)-objs), $(m)))
 single   := $(filter-out $(multi), $(obj))
 
 obj      := $(single) $(foreach m, $(multi), $($(m:%.o=%)-objs))
-obj-deps := $(obj:%.o=%.d)
+obj_deps := $(obj:%.o=%.d)
 single   := $(patsubst %.o, %, $(single))
 multi    := $(patsubst %.o, %, $(multi))
 
 
 # Add subdir path
 # ---------------------------------------------------------------------------
-subdir     := $(addprefix $(dir)/, $(subdir))
-obj        := $(addprefix $(dir)/, $(obj))
-obj-deps   := $(addprefix $(dir)/, $(obj-deps))
-single     := $(addprefix $(dir)/, $(single))
-multi      := $(addprefix $(dir)/, $(multi))
-lib        := $(addprefix $(dir)/, $(lib))
-lib-deps   := $(addprefix $(dir)/, $(lib-deps))
-curlib     := $(addprefix $(dir)/, $(curlib))
-sublib     := $(addprefix $(dir)/, $(sublib))
-arlib      := $(addprefix $(dir)/, $(arlib))
-shlib      := $(addprefix $(dir)/, $(shlib))
+subdir   := $(addprefix $(dir)/, $(subdir))
+obj      := $(addprefix $(dir)/, $(obj))
+obj_deps := $(addprefix $(dir)/, $(obj_deps))
+single   := $(addprefix $(dir)/, $(single))
+multi    := $(addprefix $(dir)/, $(multi))
+lib      := $(addprefix $(dir)/, $(lib))
+lib_deps := $(addprefix $(dir)/, $(lib_deps))
+curlib   := $(addprefix $(dir)/, $(curlib))
+sublib   := $(addprefix $(dir)/, $(sublib))
+arlib    := $(addprefix $(dir)/, $(arlib))
+shlib    := $(addprefix $(dir)/, $(shlib))
 
 
 # CMD define
 #         echo_xxxx will be printed
 #         cmd_xxxx will be executed
 # ---------------------------------------------------------------------------
-echo_cmd = $(if $(echo_$(1)),echo "    $(echo_$(1))";)
+echo_cmd = $(if $(echo_$(1)), echo "    $(echo_$(1))";)
 cmd = $(Q)$(if $(cmd_$(1)), $(echo_cmd)$(cmd_$(1)))
 
 

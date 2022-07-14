@@ -3,14 +3,14 @@ PHONY := __build
 __build :
 
 
-include scripts/Makefile.lib
+include scripts/Makefile.include
 
 
 # Compile and assemble
 # ---------------------------------------------------------------------------
 echo_cc = CC      $@
 cmd_cc = $(CC) $(CPPFLAGS) $(CPPFLAGS_$(@F)) \
-	$(CFLAGS) $(CFLAGS_$(@F)) -c $< -o $@
+		$(CFLAGS) $(CFLAGS_$(@F)) -c $< -o $@
 
 # Linking
 # ---------------------------------------------------------------------------
@@ -26,7 +26,7 @@ cmd_ld_multi = $(CC) $(LDFLAGS) $(LDFLAGS_$(@F)) $^ \
 
 define rule-multi
 $(foreach m, $(notdir $1), \
-	$(eval $(dir)/$m: \
+	$(eval $(dir)/$m : \
 	$(addprefix $(dir)/, $($(m)-objs))))
 endef
 
@@ -55,8 +55,14 @@ cmd_deps = $(CC) -MM $< > $@
 __build : $(subdir) $(curlib) $(arlib) $(shlib) $(single) $(multi)
 	@:
 
+$(subdir) :
+	$(Q)$(MAKE) $(build)=$@
+
 $(dir)/%.o : $(src)/%.c
 	$(call cmd,cc)
+
+$(sublib) : $(subdir)
+	@:
 
 $(dir)/lib%.o : $(lib) $(sublib)
 	$(call cmd,lib_obj)
@@ -74,13 +80,10 @@ $(multi) :
 	$(call cmd,ld_multi)
 $(call rule-multi, $(multi))
 
-$(subdir) :
-	$(Q)$(MAKE) $(build)=$@
-
 $(dir)/%.d : $(src)/%.c
 	$(call cmd,deps)
-sinclude $(lib-deps)
-sinclude $(obj-deps)
+sinclude $(lib_deps)
+sinclude $(obj_deps)
 
 
 .FORCE :

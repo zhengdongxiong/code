@@ -662,9 +662,8 @@
 				  返回地址装入eip程序计数器, ret指令在栈中找到标号为1的指令地址, 如果next_p第一次执行而以前从未被挂起, 就会找到
 				  ret_frim_fork()函数的起始地址
 
-					movl %edi,%eax /* return prev_p) */
+					movl %edi,%eax /* return prev_p */
 					ret
-
 
 				#define switch_to(prev,next,last) do {     \
 						unsigned long esi,edi;      \
@@ -684,7 +683,76 @@
 						"2" (prev), "d" (next));    \
 				} while (0)
 
-		P129
+		保存和加载FPU, MMX和XMM寄存器
+			FPU浮点运算单元, MMX指令加速多媒体应用程序执行, 8个128位XMM寄存器(处理单指令多数据)
+
+			80x86并不在TSS中保存FPU, MMX和XMM寄存器, 包含某种硬件支持, 能需要时保存这些寄存器的值, 由CR0寄存器中一个TS标志组成
+				执行硬件上下文切换时, 设置TS标志
+				每当TS标志被设置时执行ESCAPE, MMX, SSE或SSE2指令, 控制单元就产生一个"Device not available"异常
+
+			TS标志使得内核只有在真正需要时才保存和恢复FPU, MMX和XMM寄存器, 例如:
+				进程A使用数学协处理器, 发生上下文切换时, 内核置TS标志并把浮点寄存器保存在进程A的TSS中, 如果新进程B不利用协处理器, 内核不必恢复浮点寄存器内容
+				若B使用, CPU产生一个"Device not available"异常, 相应的异常处理程序用保存在进程B中的TSS值装载浮点寄存器
+
+			进程描述符包含两个附加的标志:
+				thread_info描述符的status字段中TS_USEDFPU标志, 表示进程在当前执行的过程中是否使用过FPU, MMX和XMM寄存器
+				包含在task_struct描述符的flags字段中的PF_USED_MATH标志, 这个标志表示thread.i387字段内容是否有意义, 两种情况下会被清零:
+					1.进程调用execve()系统调用
+					2.  在用户态下执行一个程序的进程开始执行一个信号处理程序时, 因为信号处理程序与程序的执行流是异步, 执行信号处理程序之前在thread.i387中
+					保存浮点寄存器处理程序结束后恢复它们, 因此信号处理程序可以使用数学协处理器
+
+			FPU寄存器
+				保存
+					  __switch_to函数把被替换进程prev描述符作为参数传递给__unlazy_fpu宏, 宏检查prev的TS_USEDFPU标志值, 如果该标志被置位说明prev在执行中使用
+					FPU, MMX, SSE, 或SSE2指令, 因此内核必须保存相关硬件上下文
+						if (prev->thread-info->status & TS_USEDFPU)
+							save_init_fpu(prev);
+						save_init_fpu()
+							1.  把fpu寄存器的内容转储到prev进程描述符中, 重新初始化fpu, 如果cpu使用SSE/SSE2扩展, 则还会转储XMM寄存器的内容,
+							并重新初始化SSE/SSE2单元, 否则执行1.2
+								1.1 asm volatile("fxsave %0; fnclex"
+													:"=m" (tsk->thread.i387.fxsave));
+								1.2 asm volatile("fxsave %0; fwait"
+													:"=m" (tsk->thread.i387.fxsave));
+							2.重置prev的TS_USEDFPU标志
+								prev->thread_info->status &= ~TS_USEDFPU;
+							3.用stts()设置CR0的TS标志, 该宏产生的汇编指令
+								movl %cr0, %eax
+								orl $8, %eax
+								movl %eax, %cr0
+
+				装载FPU寄存器
+					  在next进程恢复执行时, 浮点寄存器的内容还没被恢复, 不过, CR0的TS标志由__unlazy_fpu()设置, 因此next进程第一次试图执行ESCAPE
+					MMX或SSE/SSE2指令, 控制单元就产生一个"Device not available"异常, 异常调用处理程序运行match_state_restore函数, 处理程序把next进程当作current处理
+					match_state_restore()
+						asm volatile ("clts"); /* clear the TS flag of cr0 */
+						if (!(curren->flags & PF_USED_MATH))
+							inti_fpu(current);
+						restore_fpu(current);
+						current->thead.status |= TS_USEDFPU;
+
+				内核态使用FPU, MMX, SSE/SSE2单元
+					1.使用协处理器之前, 如果用户态进程使用了FPU(TS_USEDFPU标志), 内核必须调用kernel_fpu_begin(), 调用save_init_fpu()保存寄存器, 然后重新设置CR0寄存器TS标志
+					2.使用完成后, 内核必须调用kernel_fpu_end()设置CR0的TS标志, 当用户态执行协处理器指令时, math_state_restore函数恢复寄存器
+
+				实际上当移动或清楚大内存区字段时, 或计算校验和函数时, 才使用FPU, MMX或SSE/SSE2单元
+
+	创建进程
+		很多情况下, 子进程立即调用execve(), 并清除父进程拷贝过来的地址空间
+			1.写时复制技术允许父子进程读相同的物理页, 两者中有一个试图写一个物理页, 内核把这个页内容拷贝到一个新的物理页, 并把这个新的物理页分配给正在写的进程
+			2.轻量级进程允许父子进程共享, 进程在内核很多数据结构, 如页表, 打开文件表及信号处理
+			3.vfork()系统调用创建的进程共享父进程的内存地址空间, 防止父进程重写子进程需要的数据, 阻塞父进程的执行, 一直到子进程退出或执行一个新的程序位置
+
+		clone()
+			  负责建立新轻量级进程的堆栈并且调用对编程者隐藏的clone系统调用, clone系统调用没有fn和arg参数, 封装函数把fn指针存放在函数本身返回地址存放位置,
+			arg指针正好存放在子进程堆栈中fn下面, 当封装函数结束时, CPU从堆栈中取出返回地址, 然后执行fn(arg)函数
+
+		fork()
+			  使用clone实现, flags参数指定为SIGCHLD信号及所有清0的clone标志, 它的child_stack参数是父进程当前的堆栈指针, 因此父进程和子进程暂时
+			共享一个用户态堆栈
+		vfork()系统调用
+
+
 
 双向链表
 	对于每个链表, 必须实现一组原语操作: 初始化, 插入和删除一个元素, 扫描链表等

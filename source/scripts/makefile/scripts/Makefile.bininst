@@ -3,7 +3,7 @@ PHONY := __bininst
 __bininst :
 
 
-include scripts/Makefile.lib
+include scripts/Makefile.include
 
 
 # Install bin
@@ -18,11 +18,11 @@ cmd_bininst = mkdir -p $(inst_bindir); cp -r $@ $(inst_bindir)
 __bininst : $(subdir) $(inst_bin)
 	@:
 
-$(inst_bin) :
-	$(call cmd,bininst)
-
 $(subdir) :
 	$(Q)$(MAKE) $(bininst)=$@
+
+$(inst_bin) :
+	$(call cmd,bininst)
 
 
 PHONY += $(subdir) $(inst_bin)

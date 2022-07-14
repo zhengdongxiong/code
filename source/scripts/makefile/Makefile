@@ -13,22 +13,21 @@ export Q
 
 # Project name and Library name and Compile opts
 # ---------------------------------------------------------------------------
-libname   := pa8910
-version   := 0.0.1
+libname     := pa8910
+version     := 0.0.1
 shlib_flags :=
 shlib_libs  :=
 
 export libname version shlib_flags shlib_libs
 
-
 # All subdir
 # ---------------------------------------------------------------------------
 hdr_dir   := include
 lib_dir   := lib
-bin_dir   := bin
+src_dir   := src
 inst_path := install
 
-export hdr_dir lib_dir bin_dir inst_path
+export hdr_dir lib_dir src_dir inst_path
 
 # Define Global Compiler and Compile opts
 # ---------------------------------------------------------------------------
@@ -44,20 +43,19 @@ export CC LD AR CPPFLAGS CFLAGS LDFLAGS LIBS
 
 # Include Makefile libs
 # ---------------------------------------------------------------------------
-include scripts/Makefile.lib
-
+include scripts/Makefile.include
 
 # Make target
 # ---------------------------------------------------------------------------
-build_dir  := $(addprefix _build_, $(lib_dir) $(bin_dir))
-clean_dir  := $(addprefix _clean_, $(lib_dir) $(bin_dir))
+build_bin  := $(addprefix _build_, $(src_dir))
+clean_dir  := $(addprefix _clean_, $(lib_dir) $(src_dir))
 hdr_inst   := $(addprefix _hdrinst_, $(hdr_dir))
 lib_inst   := $(addprefix _libinst_, $(lib_dir))
-bin_inst   := $(addprefix _bininst_, $(bin_dir))
+bin_inst   := $(addprefix _bininst_, $(src_dir))
 uninst_dir := $(addprefix _uninst_, $(inst_path))
 
 
-all : $(build_dir)
+all : prepare $(build_bin)
 
 clean : $(clean_dir)
 
@@ -65,7 +63,10 @@ install : $(hdr_inst) $(lib_inst) $(bin_inst)
 
 uninstall : $(uninst_dir)
 
-$(build_dir) :
+prepare :
+	$(Q)$(MAKE) $(build)=$(lib_dir)
+
+$(build_bin) : prepare
 	$(Q)$(MAKE) $(build)=$(patsubst _build_%,%,$@)
 
 $(clean_dir) :
@@ -87,7 +88,7 @@ $(uninst_dir) :
 FORCE :
 
 
-PHONY += clean install uninstall FORCE
-PHONY += $(build_dir) $(clean_dir) $(hdr_inst) $(lib_inst) $(bin_inst) $(uninst_dir)
+PHONY += prepare clean install uninstall FORCE
+PHONY += $(build_bin) $(clean_dir) $(hdr_inst) $(lib_inst) $(bin_inst) $(uninst_dir)
 
 .PHONY : $(PHONY)

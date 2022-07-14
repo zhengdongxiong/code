@@ -3,7 +3,7 @@ PHONY := __hdrinst
 __hdrinst :
 
 
-include scripts/Makefile.lib
+include scripts/Makefile.include
 
 
 # Install header

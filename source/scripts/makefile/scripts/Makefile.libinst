@@ -3,7 +3,7 @@ PHONY := __libinst
 __libinst :
 
 
-include scripts/Makefile.lib
+include scripts/Makefile.include
 
 
 # Install lib
